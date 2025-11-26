@@ -175,7 +175,6 @@ class SlackNotifier(BaseNotifier):
                 return None
 
             # Extract team ID from webhook URL if possible
-            # Webhook URLs are typically: https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
             if "/services/" in url:
                 parts = url.split("/services/")
                 if len(parts) > 1:
