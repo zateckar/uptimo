@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}Create Notification Channel - Uptimo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="fw-bold mb-1">Create Notification Channel</h2>
+                    <p class="text-muted mb-0">Configure a new notification delivery method</p>
+                </div>
+                <a href="{{ url_for('notifications.channels') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <form method="POST" id="channelForm">
+                        {{ form.hidden_tag() }}
+
+                        <!-- Basic Information -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                {{ form.name.label(class="form-label") }}
+                                {{ form.name(class="form-control") }}
+                                {% if form.name.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.name.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.type.label(class="form-label") }}
+                                {{ form.type(class="form-select", id="channelType") }}
+                                {% if form.type.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.type.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form.is_active(class="form-check-input") }}
+                                {{ form.is_active.label(class="form-check-label") }}
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- Email Configuration -->
+                        <div id="emailConfig" class="d-none">
+                            <h5>Email Configuration</h5>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    {{ form.smtp_server.label(class="form-label") }}
+                                    {{ form.smtp_server(class="form-control") }}
+                                    <small class="form-text text-muted">Leave empty to use default SMTP settings</small>
+                                    {% if form.smtp_server.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {% for error in form.smtp_server.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-3">
+                                    {{ form.smtp_port.label(class="form-label") }}
+                                    {{ form.smtp_port(class="form-control") }}
+                                    {% if form.smtp_port.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {% for error in form.smtp_port.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check mt-4">
+                                        {{ form.use_tls(class="form-check-input") }}
+                                        {{ form.use_tls.label(class="form-check-label") }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    {{ form.smtp_username.label(class="form-label") }}
+                                    {{ form.smtp_username(class="form-control") }}
+                                    <small class="form-text text-muted">SMTP username (often your email)</small>
+                                    {% if form.smtp_username.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {% for error in form.smtp_username.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.smtp_password.label(class="form-label") }}
+                                    {{ form.smtp_password(class="form-control") }}
+                                    <small class="form-text text-muted">SMTP password or app password</small>
+                                    {% if form.smtp_password.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {% for error in form.smtp_password.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    {{ form.from_email.label(class="form-label") }}
+                                    {{ form.from_email(class="form-control") }}
+                                    <small class="form-text text-muted">Sender email address</small>
+                                    {% if form.from_email.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {% for error in form.from_email.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.to_email.label(class="form-label") }}
+                                    {{ form.to_email(class="form-control") }}
+                                    <small class="form-text text-muted">Recipient email address</small>
+                                    {% if form.to_email.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {% for error in form.to_email.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Telegram Configuration -->
+                        <div id="telegramConfig" class="d-none">
+                            <h5>Telegram Configuration</h5>
+                            
+                            <div class="mb-3">
+                                {{ form.bot_token.label(class="form-label") }}
+                                {{ form.bot_token(class="form-control") }}
+                                <small class="form-text text-muted">Get your bot token from @BotFather</small>
+                                {% if form.bot_token.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.bot_token.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                {{ form.chat_id.label(class="form-label") }}
+                                {{ form.chat_id(class="form-control") }}
+                                <small class="form-text text-muted">Your user or group chat ID</small>
+                                {% if form.chat_id.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.chat_id.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Slack Configuration -->
+                        <div id="slackConfig" class="d-none">
+                            <h5>Slack Configuration</h5>
+                            
+                            <div class="mb-3">
+                                {{ form.webhook_url.label(class="form-label") }}
+                                {{ form.webhook_url(class="form-control") }}
+                                <small class="form-text text-muted">Incoming webhook URL from Slack</small>
+                                {% if form.webhook_url.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.webhook_url.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    {{ form.channel.label(class="form-label") }}
+                                    {{ form.channel(class="form-control") }}
+                                    <small class="form-text text-muted">Slack channel (e.g., #alerts)</small>
+                                    {% if form.channel.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {% for error in form.channel.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.username.label(class="form-label") }}
+                                    {{ form.username(class="form-control") }}
+                                    <small class="form-text text-muted">Bot username for Slack messages</small>
+                                    {% if form.username.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {% for error in form.username.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-end">
+                            <a href="{{ url_for('notifications.channels') }}" class="btn btn-secondary me-2">Cancel</a>
+                            {{ form.submit(class="btn btn-primary") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm sticky-top sticky-top-1rem">
+                <div class="card-header">
+                    <h6 class="mb-0 fw-semibold">
+                        <i class="bi bi-question-circle"></i> Configuration Help
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    <div id="emailHelp" class="help-section d-none">
+                        <h6 class="fw-semibold mb-3">
+                            <i class="bi bi-envelope text-primary"></i> Email Setup
+                        </h6>
+                        <p class="small text-muted mb-3">Configure email notifications using SMTP or SendGrid:</p>
+                        <ul class="small mb-0">
+                            <li class="mb-2"><strong>SMTP:</strong> Provide your email server credentials</li>
+                            <li class="mb-2"><strong>SendGrid:</strong> Configure in app settings and just provide recipient</li>
+                            <li><strong>Testing:</strong> Use the Test button after creating</li>
+                        </ul>
+                    </div>
+
+                    <div id="telegramHelp" class="help-section d-none">
+                        <h6 class="fw-semibold mb-3">
+                            <i class="bi bi-telegram text-info"></i> Telegram Setup
+                        </h6>
+                        <p class="small text-muted mb-3">Get your Telegram bot configured:</p>
+                        <ol class="small mb-0">
+                            <li class="mb-2">Message <strong>@BotFather</strong> on Telegram</li>
+                            <li class="mb-2">Create a bot and get its token</li>
+                            <li class="mb-2">Get your chat ID by messaging your bot</li>
+                            <li>Use <code class="text-monospace">@userinfobot</code> to find your chat ID</li>
+                        </ol>
+                    </div>
+
+                    <div id="slackHelp" class="help-section d-none">
+                        <h6 class="fw-semibold mb-3">
+                            <i class="bi bi-slack text-success"></i> Slack Setup
+                        </h6>
+                        <p class="small text-muted mb-3">Configure Slack incoming webhooks:</p>
+                        <ol class="small mb-0">
+                            <li class="mb-2">Go to <strong>Slack App Directory</strong></li>
+                            <li class="mb-2">Create an "Incoming Webhooks" app</li>
+                            <li class="mb-2">Add it to your workspace</li>
+                            <li>Copy the webhook URL provided</li>
+                        </ol>
+                    </div>
+
+                    <div id="defaultHelp" class="help-section">
+                        <h6 class="fw-semibold mb-3">
+                            <i class="bi bi-info-circle text-primary"></i> Select a Channel Type
+                        </h6>
+                        <p class="small text-muted mb-3">Choose a notification channel type to see configuration help:</p>
+                        <div class="d-flex flex-column gap-2">
+                            <div class="p-2 rounded bg-light border">
+                                <strong class="small"><i class="bi bi-envelope"></i> Email:</strong>
+                                <span class="small text-muted">Classic email notifications</span>
+                            </div>
+                            <div class="p-2 rounded bg-light border">
+                                <strong class="small"><i class="bi bi-telegram"></i> Telegram:</strong>
+                                <span class="small text-muted">Instant messaging with rich formatting</span>
+                            </div>
+                            <div class="p-2 rounded bg-light border">
+                                <strong class="small"><i class="bi bi-slack"></i> Slack:</strong>
+                                <span class="small text-muted">Team collaboration notifications</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('channelType').addEventListener('change', function() {
+    hideAllConfigs();
+    hideAllHelp();
+    
+    switch(this.value) {
+        case 'email':
+            document.getElementById('emailConfig').style.display = 'block';
+            document.getElementById('emailHelp').style.display = 'block';
+            break;
+        case 'telegram':
+            document.getElementById('telegramConfig').style.display = 'block';
+            document.getElementById('telegramHelp').style.display = 'block';
+            break;
+        case 'slack':
+            document.getElementById('slackConfig').style.display = 'block';
+            document.getElementById('slackHelp').style.display = 'block';
+            break;
+    }
+});
+
+function hideAllConfigs() {
+    document.getElementById('emailConfig').style.display = 'none';
+    document.getElementById('telegramConfig').style.display = 'none';
+    document.getElementById('slackConfig').style.display = 'none';
+}
+
+function hideAllHelp() {
+    document.getElementById('emailHelp').style.display = 'none';
+    document.getElementById('telegramHelp').style.display = 'none';
+    document.getElementById('slackHelp').style.display = 'none';
+    document.getElementById('defaultHelp').style.display = 'none';
+}
+
+// Initialize with help hidden
+document.getElementById('defaultHelp').style.display = 'block';
+</script>
+{% endblock %}

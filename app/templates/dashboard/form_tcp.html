@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}{% if monitor %}Edit TCP Monitor{% else %}Create TCP Monitor{% endif %} - Uptimo{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/edit-monitor.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-transparent border-bottom d-flex align-items-center justify-content-between py-3">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi bi-hdd-rack me-2 text-primary"></i>
+                        {% if monitor %}Edit TCP Monitor{% else %}Create TCP Monitor{% endif %}
+                    </h5>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" class="monitor-form needs-validation">
+                        {{ form.hidden_tag() }}
+                        {{ form.type(value='tcp', class='d-none') }}
+                        
+                        <!-- Basic Information -->
+                        <div class="form-section">
+                            <h6 class="fw-bold text-uppercase text-muted small mb-4 ls-1">Basic Information</h6>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    {{ form.name.label(class="form-label") }}
+                                    {{ form.name(class="form-control", placeholder="e.g. Database Server", required=true) }}
+                                    {% if form.name.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.name.errors[0] }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-8">
+                                    {{ form.target.label(class="form-label") }}
+                                    {{ form.target(class="form-control", placeholder="db.example.com", required=true) }}
+                                    <div class="form-text">Enter the hostname or IP address</div>
+                                    {% if form.target.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.target.errors[0] }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    {{ form.port.label(class="form-label") }}
+                                    {{ form.port(class="form-control", placeholder="e.g. 5432", required=true) }}
+                                    {% if form.port.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.port.errors[0] }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Check Settings -->
+                        <div class="form-section">
+                            <h6 class="fw-bold text-uppercase text-muted small mb-4 ls-1">Check Settings</h6>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    {{ form.check_interval.label(class="form-label") }}
+                                    {{ form.check_interval(class="form-select", required=true) }}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    {{ form.timeout.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.timeout(class="form-control", required=true) }}
+                                        <span class="input-group-text">sec</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    {{ form.response_time_threshold.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.response_time_threshold(class="form-control") }}
+                                        <span class="input-group-text">ms</span>
+                                    </div>
+                                    <div class="form-text">Alert if connection time exceeds this threshold</div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mt-4">
+                                        {{ form.is_active(class="form-check-input") }}
+                                        {{ form.is_active.label(class="form-check-label fw-medium") }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Advanced Settings -->
+                        <div class="form-section">
+                            <h6 class="fw-bold text-uppercase text-muted small mb-4 ls-1">Advanced Settings</h6>
+                            
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <span class="badge bg-light text-dark border">Domain</span>
+                                </div>
+                                
+                                <div class="col-md-5">
+                                    <div class="form-check form-switch pt-2">
+                                        {{ form.check_domain(class="form-check-input") }}
+                                        {{ form.check_domain.label(class="form-check-label") }}
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-7">
+                                    {{ form.expected_domain.label(class="form-label") }}
+                                    {{ form.expected_domain(class="form-control") }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {% if monitor %}
+                        <!-- Delete and Clone Buttons (only in edit mode) -->
+                        <div class="d-flex justify-content-between gap-2 pt-3 border-top">
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-danger" id="deleteMonitorBtn">
+                                    <i class="bi bi-trash me-1"></i>Delete Monitor
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" id="cloneMonitorBtn">
+                                    <i class="bi bi-files me-1"></i>Clone
+                                </button>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                                {{ form.submit(class="btn btn-primary px-4", value="Update Monitor") }}
+                            </div>
+                        </div>
+                        
+                        <form id="deleteForm" method="POST" action="{{ url_for('dashboard.delete', id=monitor.id) }}" class="d-none"></form>
+                        <form id="cloneForm" method="POST" action="{{ url_for('dashboard.clone', id=monitor.id) }}" class="d-none"></form>
+                        {% else %}
+                        <!-- Create Form Actions -->
+                        <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                            <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                            {{ form.submit(class="btn btn-primary px-4", value="Create Monitor") }}
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/form-handler.js') }}"></script>
+{% endblock %}

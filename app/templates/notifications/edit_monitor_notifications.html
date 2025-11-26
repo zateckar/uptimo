@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ monitor.name }} Notifications{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Edit {{ monitor.name }} Notifications</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('notifications.monitor_notifications', monitor_id=monitor.id) }}" 
+           class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Settings
+        </a>
+    </div>
+</div>
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('dashboard.edit', id=monitor.id) }}">{{ monitor.name }}</a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('notifications.monitor_notifications', monitor_id=monitor.id) }}">Notifications</a>
+        </li>
+        <li class="breadcrumb-item active">Edit Settings</li>
+    </ol>
+</nav>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Notification Settings</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="notificationForm">
+                    {{ csrf_token() }}
+                    
+                    <!-- Notification Channels -->
+                    <div class="mb-4">
+                        <label class="form-label">Notification Channels</label>
+                        {% if form.channels %}
+                            <div class="form-text mb-2">
+                                Select which notification channels to use for this monitor. 
+                                <a href="{{ url_for('notifications.create_channel') }}" target="_blank">Create new channel</a> 
+                                if needed.
+                            </div>
+                            {% for channel in form.channels %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" 
+                                           name="channel_ids" 
+                                           value="{{ channel.id }}" 
+                                           id="channel_{{ channel.id }}"
+                                           {% if channel.id in form.channel_ids.data %}checked{% endif %}>
+                                    <label class="form-check-label" for="channel_{{ channel.id }}">
+                                        <strong>{{ channel.name }}</strong>
+                                        <span class="badge bg-info ms-2">{{ channel.type.value.upper() }}</span>
+                                        {% if not channel.is_active %}
+                                            <span class="badge bg-secondary ms-1">Inactive</span>
+                                        {% endif %}
+                                        {% if not channel.is_verified %}
+                                            <span class="badge bg-warning ms-1">Not Verified</span>
+                                        {% endif %}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                You don't have any notification channels configured.
+                                <a href="{{ url_for('notifications.create_channel') }}" class="alert-link">
+                                    Create your first notification channel
+                                </a> 
+                                to enable notifications.
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Notification Settings -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" 
+                                       name="notify_on_down" 
+                                       id="notify_on_down"
+                                       {% if form.notify_on_down.data %}checked{% endif %}>
+                                <label class="form-check-label" for="notify_on_down">
+                                    <i class="fas fa-arrow-down text-danger"></i> Notify on Down
+                                </label>
+                                <div class="form-text">Send alert when monitor goes down</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" 
+                                       name="notify_on_up" 
+                                       id="notify_on_up"
+                                       {% if form.notify_on_up.data %}checked{% endif %}>
+                                <label class="form-check-label" for="notify_on_up">
+                                    <i class="fas fa-arrow-up text-success"></i> Notify on Recovery
+                                </label>
+                                <div class="form-text">Send alert when monitor comes back up</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" 
+                                       name="notify_on_ssl_warning" 
+                                       id="notify_on_ssl_warning"
+                                       {% if form.notify_on_ssl_warning.data %}checked{% endif %}>
+                                <label class="form-check-label" for="notify_on_ssl_warning">
+                                    <i class="fas fa-shield-alt text-warning"></i> SSL Warnings
+                                </label>
+                                <div class="form-text">Alert about certificate issues</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Escalation Settings -->
+                    <div class="mb-4">
+                        <label for="escalate_after_minutes" class="form-label">
+                            <i class="fas fa-clock text-info"></i> Escalation (Optional)
+                        </label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="escalate_after_minutes" 
+                               name="escalate_after_minutes"
+                               min="1" 
+                               max="1440"
+                               value="{{ form.escalate_after_minutes.data or '' }}"
+                               placeholder="Leave empty to disable">
+                        <div class="form-text">
+                            Send escalation notification if monitor remains down for this many minutes 
+                            (max 1440 minutes = 24 hours).
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('notifications.monitor_notifications', monitor_id=monitor.id) }}" 
+                           class="btn btn-outline-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Monitor Info -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Monitor Information</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <td><strong>Name:</strong></td>
+                        <td>{{ monitor.name }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Type:</strong></td>
+                        <td>{{ monitor.type.value.upper() }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Target:</strong></td>
+                        <td class="text-break">{{ monitor.target }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Check Interval:</strong></td>
+                        <td>{{ monitor.check_interval.value }} seconds</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Status:</strong></td>
+                        <td>
+                            {% if monitor.last_status == 'up' %}
+                                <span class="badge bg-success">Up</span>
+                            {% elif monitor.last_status == 'down' %}
+                                <span class="badge bg-danger">Down</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Unknown</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Help -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Notification Help</h6>
+            </div>
+            <div class="card-body">
+                <h6><i class="fas fa-info-circle text-info"></i> Smart Alerting</h6>
+                <p class="small text-muted">
+                    The system uses smart alerting to prevent notification spam:
+                </p>
+                <ul class="small text-muted">
+                    <li>Only one "down" notification per incident</li>
+                    <li>Only one "up" notification when recovered</li>
+                    <li>Optional escalation after specified time</li>
+                    <li>SSL warnings sent separately from incidents</li>
+                </ul>
+
+                <h6><i class="fas fa-lightbulb text-warning"></i> Best Practices</h6>
+                <ul class="small text-muted">
+                    <li>Configure multiple channels for redundancy</li>
+                    <li>Set escalation for critical services</li>
+                    <li>Test your channels before relying on them</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Form validation
+document.getElementById('notificationForm').addEventListener('submit', function(e) {
+    const channels = document.querySelectorAll('input[name="channel_ids"]:checked');
+    
+    if (channels.length === 0) {
+        e.preventDefault();
+        
+        // Create alert if not exists
+        let alertDiv = document.querySelector('.alert-danger');
+        if (!alertDiv) {
+            alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                Please select at least one notification channel.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.card-body').prepend(alertDiv);
+        }
+        
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+});
+
+// Escalation field validation
+document.getElementById('escalate_after_minutes').addEventListener('input', function(e) {
+    const value = parseInt(e.target.value);
+    if (value && (value < 1 || value > 1440)) {
+        e.target.setCustomValidity('Escalation time must be between 1 and 1440 minutes');
+    } else {
+        e.target.setCustomValidity('');
+    }
+});
+</script>
+{% endblock %}

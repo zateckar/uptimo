@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Application Settings - Uptimo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h2><i class="bi bi-gear-fill"></i> Application Settings</h2>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- General Settings -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-sliders"></i> General Settings</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.settings') }}">
+                        {{ settings_form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ settings_form.log_level.label(class="form-label") }}
+                            {{ settings_form.log_level(class="form-select") }}
+                            <div class="form-text">
+                                Controls the level of logging detail in the application.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ settings_form.timezone.label(class="form-label") }}
+                            {{ settings_form.timezone(class="form-select") }}
+                            <div class="form-text">
+                                Timezone used for displaying timestamps in the application.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ settings_form.data_retention_days.label(class="form-label") }}
+                            {{ settings_form.data_retention_days(class="form-control") }}
+                            <div class="form-text">
+                                Default number of days to retain check results (1-3650 days).
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            {{ settings_form.submit(class="btn btn-primary") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Management -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-database"></i> Database Management</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Database Info -->
+                    <div class="mb-4">
+                        <h6 class="text-muted">Database Information</h6>
+                        <div class="border rounded p-3 bg-light">
+                            <div class="row">
+                                <div class="col-6">
+                                    <strong>Database Size:</strong>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <span class="badge bg-info">{{ db_size }}</span>
+                                </div>
+                            </div>
+                            {% if db_path %}
+                            <div class="row mt-2">
+                                <div class="col-12">
+                                    <small class="text-muted">
+                                        Path: <span class="text-monospace">{{ db_path }}</span>
+                                    </small>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Vacuum Database -->
+                    <div class="mb-4">
+                        <h6 class="text-muted">Optimize Database</h6>
+                        <p class="small text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            Vacuum reclaims unused space and optimizes the database. 
+                            This is safe to run anytime.
+                        </p>
+                        <form method="POST" action="{{ url_for('admin.vacuum_database') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-outline-primary">
+                                <i class="bi bi-arrow-clockwise"></i> Vacuum Database
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Delete Old Records -->
+                    <div>
+                        <h6 class="text-muted">Delete Old Records</h6>
+                        <p class="small text-muted">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Permanently delete check records older than specified days.
+                        </p>
+                        <form method="POST" action="{{ url_for('admin.delete_old_records') }}">
+                            {{ delete_form.hidden_tag() }}
+                            <div class="row g-2">
+                                <div class="col-auto">
+                                    {{ delete_form.days(class="form-control days-input", placeholder="Days") }}
+                                </div>
+                                <div class="col-auto">
+                                    <button type="button" 
+                                            class="btn btn-outline-danger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteRecordsModal">
+                                        <i class="bi bi-trash"></i> Delete Old Records
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteRecordsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete old check records?</p>
+                <p class="text-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    This action cannot be undone. All check results older than the specified number of days will be permanently deleted.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="{{ url_for('admin.delete_old_records') }}" class="form-inline-display">
+                    {{ delete_form.hidden_tag() }}
+                    <input type="hidden" name="days" id="modal-days-value">
+                    <button type="submit" class="btn btn-danger">Delete Records</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

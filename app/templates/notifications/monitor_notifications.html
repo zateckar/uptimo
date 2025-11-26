@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}{{ monitor.name }} - Notifications{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ monitor.name }} - Notifications</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('notifications.edit_monitor_notifications', monitor_id=monitor.id) }}" 
+           class="btn btn-primary">
+            <i class="fas fa-edit"></i> Edit Settings
+        </a>
+    </div>
+</div>
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('dashboard.edit', id=monitor.id) }}">{{ monitor.name }}</a>
+        </li>
+        <li class="breadcrumb-item active">Notifications</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Current Notification Settings</h5>
+            </div>
+            <div class="card-body">
+                {% if current_settings %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Channel</th>
+                                    <th>Type</th>
+                                    <th>Enabled</th>
+                                    <th>Notify on Down</th>
+                                    <th>Notify on Up</th>
+                                    <th>SSL Warnings</th>
+                                    <th>Escalation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for setting in current_settings %}
+                                <tr>
+                                    <td>
+                                        {{ setting.channel.name }}
+                                        {% if not setting.channel.is_active %}
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                        {% if not setting.channel.is_verified %}
+                                            <span class="badge bg-warning">Not Verified</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ setting.channel.type.value.upper() }}</span>
+                                    </td>
+                                    <td>
+                                        {% if setting.is_enabled %}
+                                            <i class="fas fa-check text-success"></i>
+                                        {% else %}
+                                            <i class="fas fa-times text-danger"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if setting.notify_on_down %}
+                                            <i class="fas fa-check text-success"></i>
+                                        {% else %}
+                                            <i class="fas fa-times text-danger"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if setting.notify_on_up %}
+                                            <i class="fas fa-check text-success"></i>
+                                        {% else %}
+                                            <i class="fas fa-times text-danger"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if setting.notify_on_ssl_warning %}
+                                            <i class="fas fa-check text-success"></i>
+                                        {% else %}
+                                            <i class="fas fa-times text-danger"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if setting.escalate_after_minutes %}
+                                            {{ setting.escalate_after_minutes }} min
+                                        {% else %}
+                                            <span class="text-muted">None</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        No notification channels are configured for this monitor.
+                        <a href="{{ url_for('notifications.edit_monitor_notifications', monitor_id=monitor.id) }}" 
+                           class="alert-link">Configure notifications</a> 
+                        to receive alerts when this monitor goes down or recovers.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Available Channels</h5>
+            </div>
+            <div class="card-body">
+                {% if available_channels %}
+                    <p>You have {{ available_channels|length }} notification channel(s) available:</p>
+                    <ul class="list-group">
+                        {% for channel in available_channels %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ channel.name }}</strong>
+                                <span class="badge bg-info ms-2">{{ channel.type.value.upper() }}</span>
+                                {% if not channel.is_active %}
+                                    <span class="badge bg-secondary ms-1">Inactive</span>
+                                {% endif %}
+                            </div>
+                            {% if channel.last_sent %}
+                                <small class="text-muted">Last used: {{ channel.last_sent|ago }}</small>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% if not available_channels %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            No active notification channels available.
+                            <a href="{{ url_for('notifications.create_channel') }}" class="alert-link">
+                                Create a notification channel
+                            </a> 
+                            to enable notifications.
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        You don't have any notification channels configured.
+                        <a href="{{ url_for('notifications.create_channel') }}" class="alert-link">
+                            Create your first notification channel
+                        </a> 
+                        to enable notifications.
+                    </div>
+                {% endif %}
+                
+                {% if available_channels %}
+                <div class="mt-3">
+                    <a href="{{ url_for('notifications.channels') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-cog"></i> Manage Channels
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Notification Types</h5>
+            </div>
+            <div class="card-body">
+                <h6><i class="fas fa-arrow-down text-danger"></i> Monitor Down</h6>
+                <p class="text-muted">Sent when a monitor fails and an incident is created.</p>
+                
+                <h6><i class="fas fa-arrow-up text-success"></i> Monitor Recovered</h6>
+                <p class="text-muted">Sent when a monitor comes back online and the incident is resolved.</p>
+                
+                <h6><i class="fas fa-shield-alt text-warning"></i> SSL Certificate Warning</h6>
+                <p class="text-muted">Sent when an SSL certificate is approaching expiration.</p>
+                
+                <h6><i class="fas fa-clock text-info"></i> Escalation</h6>
+                <p class="text-muted">Optional escalation if monitor remains down for specified time.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

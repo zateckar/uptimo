@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Uptimo{% endblock %}
+
+{% block content %}
+<div class="row g-0 h-100">
+    <!-- Sidebar with Monitor List -->
+    <div class="col-md-4 col-lg-3 bg-surface h-100 overflow-hidden d-flex flex-column">
+        <div class="p-3 d-flex justify-content-between align-items-center bg-body">
+            <h6 class="mb-0 fw-bold text-uppercase text-muted small ls-1">Monitors</h6>
+            <div class="btn-group">
+                <button type="button" class="btn btn-sm btn-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-plus-lg"></i> 
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{{ url_for('dashboard.create_http') }}">
+                        <i class="bi bi-globe me-2"></i>HTTP/HTTPS
+                    </a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('dashboard.create_kafka') }}">
+                        <i class="bi bi-hdd-network me-2"></i>Kafka
+                    </a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('dashboard.create_tcp') }}">
+                        <i class="bi bi-hdd-rack me-2"></i>TCP
+                    </a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('dashboard.create_ping') }}">
+                        <i class="bi bi-reception-4 me-2"></i>Ping
+                    </a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Stats Overview -->
+        <div class="p-3 bg-surface">
+            <div class="row text-center g-2">
+                <div class="col-4">
+                    <div class="p-2 rounded bg-light border">
+                        <div class="fw-bold text-success h5 mb-0" id="upMonitors">{{ stats.up_monitors }}</div>
+                        <small class="text-muted text-xsmall text-uppercase fw-bold">Up</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 rounded bg-light border">
+                        <div class="fw-bold text-danger h5 mb-0" id="downMonitors">{{ stats.down_monitors }}</div>
+                        <small class="text-muted text-xsmall text-uppercase fw-bold">Down</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 rounded bg-light border">
+                        <div class="fw-bold text-warning h5 mb-0" id="activeIncidents">{{ stats.active_incidents }}</div>
+                        <small class="text-muted text-xsmall text-uppercase fw-bold">Issues</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Monitor List -->
+        <div class="overflow-auto flex-grow-1" id="monitorList">
+            {% for monitor in monitors %}
+            <div class="monitor-item{% if not monitor.is_active %} paused{% endif %}"
+               data-monitor-id="{{ monitor.id }}"
+               data-monitor-name="{{ monitor.name }}">
+                <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                    <div class="monitor-name text-truncate pe-2">{{ monitor.name }}</div>
+                    <div>
+                        {% if monitor.last_status == 'up' %}
+                        <span class="badge bg-success">{{ "%.1f"|format(monitor.get_uptime_percentage(1)) }}%</span>
+                        {% elif monitor.last_status == 'down' %}
+                        <span class="badge bg-danger">{{ "%.1f"|format(monitor.get_uptime_percentage(1)) }}%</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ "%.1f"|format(monitor.get_uptime_percentage(1)) }}%</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                       <div class="mini-heartbeat-container" id="heartbeat-{{ monitor.id }}">
+                        <!-- Heartbeats loaded via JS -->
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            
+            {% if monitors|length == 0 %}
+            <div class="text-center p-5 text-muted">
+                <i class="bi bi-hdd-network mb-2 d-block icon-size-2rem"></i>
+                <p class="small">No monitors found</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Main Content Area -->
+    <div class="col-md-8 col-lg-9 bg-body h-100 overflow-auto">
+        <!-- Welcome Message when no monitor selected -->
+        <div id="welcomeMessage" class="d-flex flex-column align-items-center justify-content-center h-100 p-5 text-center">
+            <div class="welcome-icon-circle p-5 rounded-circle shadow-sm mb-4">
+                <i class="bi bi-activity text-primary welcome-icon-large"></i>
+            </div>
+            <h2 class="fw-bold mb-2">Welcome to Uptimo</h2>
+            <p class="text-muted mb-4 welcome-text-container">Select a monitor from the sidebar to view detailed metrics, uptime history, and incident logs.</p>
+            
+            {% if monitors|length == 0 %}
+            <div class="btn-group">
+                <button type="button" class="btn btn-primary btn-lg dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-plus-lg me-2"></i>Create First Monitor
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{{ url_for('dashboard.create_http') }}">
+                        <i class="bi bi-globe me-2"></i>HTTP/HTTPS Monitor
+                    </a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('dashboard.create_kafka') }}">
+                        <i class="bi bi-hdd-network me-2"></i>Kafka Monitor
+                    </a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('dashboard.create_tcp') }}">
+                        <i class="bi bi-hdd-rack me-2"></i>TCP Monitor
+                    </a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('dashboard.create_ping') }}">
+                        <i class="bi bi-reception-4 me-2"></i>Ping Monitor
+                    </a></li>
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Monitor Details (Hidden by default) -->
+        <div id="monitorDetails" class="d-none">
+            <!-- Monitor Header -->
+            <div class="card mb-3">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex justify-content-between">
+                         <div >
+                            <h5 class="mb-1" id="monitorTitle">Monitor Name</h5>
+                            <p class="text-muted mb-0 small" id="monitorTarget">Target URL</p>
+                        </div>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="btn-group btn-group-sm" role="group" id="monitorActions">
+                                <!-- Action buttons will be dynamically inserted here -->
+                            </div>
+                            <div id="monitorStatus" class="badge bg-secondary fs-6">UNKNOWN</div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Status Cards -->
+            <div class="row mb-3 g-1">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body py-2 px-2">
+                            <h6 class="mb-0" id="currentResponseTime">--</h6>
+                            <small class="text-muted text-xsmall-07">Response Time</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body py-2 px-2">
+                            <h6 class="mb-0" id="uptime24h">--</h6>
+                            <small class="text-muted text-xsmall-07">Uptime (24h)</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body py-2 px-2">
+                            <h6 class="mb-0" id="uptime7d">--</h6>
+                            <small class="text-muted text-xsmall-07">Uptime (7d)</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body py-2 px-2">
+                            <h6 class="mb-0" id="uptime30d">--</h6>
+                            <small class="text-muted text-xsmall-07">Uptime (30d)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Heartbeats -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header px-3">
+                            <h6>Recent Heartbeats</h6>
+                                                        <div id="lastCheckTime" class="text-muted text-xsmall-07">Last check: Never</div>
+                        </div>
+                        <div class="card-body px-3">
+
+                            <div id="heartbeatContainer">
+                                <!-- Heartbeat visualization will be loaded here -->
+                                
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Response Time Chart -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center px-3">
+                            <h6>Response Time</h6>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary timespan-btn" data-timespan="1h">1h</button>
+                                <button type="button" class="btn btn-outline-secondary timespan-btn" data-timespan="6h">6h</button>
+                                <button type="button" class="btn btn-outline-secondary timespan-btn active btn-primary" data-timespan="24h">24h</button>
+                                <button type="button" class="btn btn-outline-secondary timespan-btn" data-timespan="7d">7d</button>
+                                <button type="button" class="btn btn-outline-secondary timespan-btn" data-timespan="30d">30d</button>
+                            </div>
+                        </div>
+                        <div class="card-body px-3">
+                            <canvas id="responseTimeChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Enhanced SSL Certificate & Domain Information Dashboard -->
+            <div class="row mt-3 g-1 d-none" id="sslDomainSection">
+
+                <!-- SSL Certificate Section -->
+                <div class="col-lg-4 col-md-6 mb-3 ssl-domain-item" data-section-type="ssl" data-expiration="">
+                    <div class="card collapsible-section h-100" id="sslCertificateSection">
+                        <div class="card-header d-flex justify-content-between align-items-center"
+                             role="button"
+                             tabindex="0"
+                             data-bs-toggle="collapse"
+                             data-bs-target="#sslCertificateCollapse"
+                             aria-expanded="false"
+                             aria-controls="sslCertificateCollapse"
+                             aria-label="SSL Certificate Information, Press to expand/collapse">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-shield-lock me-2 text-primary"></i>
+                                <h6 class="mb-0">SSL Certificate</h6>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <small class="badge me-2" id="sslStatus">HTTPS</small>
+                                <small class="text-muted summary-status" id="sslSummary">
+                                    <span class="summary-days summary-loading">Loading...</span>
+                                </small>
+                                <i class="bi bi-chevron-down ms-2 collapse-icon"></i>
+                            </div>
+                        </div>
+                        <div class="collapse" id="sslCertificateCollapse">
+                            <div class="card-body px-3">
+                                <div id="sslCertificateInfo">
+                                    <div class="text-center text-muted">
+                                        <div class="spinner-border spinner-border-sm" role="status">
+                                            <span class="visually-hidden">Loading SSL certificate information...</span>
+                                        </div>
+                                        <p class="mt-2 mb-0">Loading SSL certificate information...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body d-none summary-body px-3" id="sslSummaryBody">
+                            <!-- Summary content will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Domain Registration Section -->
+                <div class="col-lg-4 col-md-6 mb-3 ssl-domain-item" data-section-type="domain" data-expiration="">
+                    <div class="card collapsible-section h-100" id="domainRegistrationSection">
+                        <div class="card-header d-flex justify-content-between align-items-center"
+                             role="button"
+                             tabindex="0"
+                             data-bs-toggle="collapse"
+                             data-bs-target="#domainRegistrationCollapse"
+                             aria-expanded="false"
+                             aria-controls="domainRegistrationCollapse"
+                             aria-label="Domain Registration Information, Press to expand/collapse">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-globe me-2 text-info"></i>
+                                <h6 class="mb-0">Domain Registration</h6>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <small class="badge me-2" id="domainStatus">DNS</small>
+                                <small class="text-muted summary-status" id="domainSummary">
+                                    <span class="summary-days summary-loading">Loading...</span>
+                                </small>
+                                <i class="bi bi-chevron-down ms-2 collapse-icon"></i>
+                            </div>
+                        </div>
+                        <div class="collapse" id="domainRegistrationCollapse">
+                            <div class="card-body px-3">
+                                <div id="domainRegistrationInfo">
+                                    <div class="text-center text-muted">
+                                        <div class="spinner-border spinner-border-sm" role="status">
+                                            <span class="visually-hidden">Loading domain information...</span>
+                                        </div>
+                                        <p class="mt-2 mb-0">Loading domain information...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body d-none summary-body px-3" id="domainSummaryBody">
+                            <!-- Summary content will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DNS Information Section -->
+                <div class="col-lg-4 col-md-12 mb-3 ssl-domain-item" data-section-type="dns" data-expiration="">
+                    <div class="card collapsible-section h-100" id="dnsInfoSection">
+                        <div class="card-header d-flex justify-content-between align-items-center"
+                             role="button"
+                             tabindex="0"
+                             data-bs-toggle="collapse"
+                             data-bs-target="#dnsInfoCollapse"
+                             aria-expanded="false"
+                             aria-controls="dnsInfoCollapse"
+                             aria-label="DNS Information, Press to expand/collapse">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-diagram-3 me-2 text-success"></i>
+                                <h6 class="mb-0">DNS Information</h6>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <small class="text-muted summary-status" id="dnsSummary">
+                                    <span class="summary-days summary-loading">Loading...</span>
+                                </small>
+                                <i class="bi bi-chevron-down ms-2 collapse-icon"></i>
+                            </div>
+                        </div>
+                        <div class="collapse" id="dnsInfoCollapse">
+                            <div class="card-body px-3">
+                                <div id="dnsInfo">
+                                    <div class="text-center text-muted">
+                                        <div class="spinner-border spinner-border-sm" role="status">
+                                            <span class="visually-hidden">Loading DNS information...</span>
+                                        </div>
+                                        <p class="mt-2 mb-0">Loading DNS information...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body d-none summary-body px-3" id="dnsSummaryBody">
+                            <!-- Summary content will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Outages -->
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header px-3">
+                            <h6>Recent Outages</h6>
+                        </div>
+                        <div class="card-body px-3">
+                            <div id="incidentsList">
+                                <!-- Outages will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Monitor Modal -->
+<div class="modal fade" id="addMonitorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Monitor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Monitor creation form will be implemented here.</p>
+                <p>For now, please use the API to create monitors.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" disabled>Add Monitor</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Chart management is handled by app.js (loaded in base.html) -->
+{% endblock %}

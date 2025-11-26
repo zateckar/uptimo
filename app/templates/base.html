@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Uptimo - Monitoring{% endblock %}</title>
+    
+    <!-- Dynamic Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('favicon') }}">
+    <link rel="shortcut icon" type="image/svg+xml" href="{{ url_for('favicon') }}">
+    
+    <!-- Bootstrap CSS -->
+    <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.css') }}" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}"></script>
+    
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    
+    {% block head %}{% endblock %}
+</head>
+<body data-app-timezone="{{ app_timezone|default('UTC') }}">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('dashboard.index') }}">
+                <i class="bi bi-activity"></i>
+                <span>Uptimo</span>
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+                
+                <ul class="navbar-nav align-items-center gap-2">
+                    <li class="nav-item">
+                        <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode" aria-label="Toggle theme">
+                            <i class="bi bi-sun-fill" id="themeIcon"></i>
+                        </button>
+                    </li>
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="d-flex align-items-center justify-content-center rounded-circle bg-primary text-white user-avatar">
+                                {{ current_user.username[0]|upper }}
+                            </div>
+                            <span class="d-none d-lg-inline">{{ current_user.username }}</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
+                                    <i class="bi bi-person"></i> Profile
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% if current_user.is_admin %}
+                             <li>
+                                <a class="dropdown-item" href="{{ url_for('admin.users') }}">
+                                    <i class="bi bi-people-fill"></i> Users
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('admin.settings') }}">
+                                    <i class="bi bi-gear-fill"></i> Application Settings
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
+                                                         <li>
+                                <a class="dropdown-item" href="{{ url_for('notifications.channels') }}">
+                                    <i class="bi bi-sliders"></i> Notification Channels
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                                                         <li>
+                                <a class="dropdown-item" href="{{ url_for('notifications.history') }}">
+                                    <i class="bi bi-clock-history"></i> Notification History
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                                    <i class="bi bi-box-arrow-right"></i> Logout
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="btn btn-sm btn-primary" href="{{ url_for('auth.login') }}">
+                            Log In
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    <div class="container-fluid mt-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    <div class="d-flex align-items-center">
+                        {% if category == 'success' %}
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        {% elif category == 'danger' or category == 'error' %}
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        {% elif category == 'warning' %}
+                        <i class="bi bi-exclamation-circle-fill me-2"></i>
+                        {% else %}
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        {% endif %}
+                        <span>{{ message }}</span>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Main Content -->
+    <main class="container-fluid py-3">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+    
+    <!-- Custom JS - Load in dependency order -->
+    <script src="{{ url_for('static', filename='js/config.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    
+    {% if current_user.is_authenticated %}
+    <!-- Dashboard-specific JS - Only load for authenticated users -->
+    <script src="{{ url_for('static', filename='js/monitor.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/realtime.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ssl-domain.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% endif %}
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

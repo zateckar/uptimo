@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Notification Channels - Uptimo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Notification Channels</h2>
+            <p class="text-muted mb-0">Manage your notification delivery methods</p>
+        </div>
+        <a href="{{ url_for('notifications.create_channel') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Add Channel
+        </a>
+    </div>
+
+    {% if channels %}
+        <div class="row">
+            {% for channel in channels %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 fw-semibold">{{ channel.name }}</h6>
+                            <div class="d-flex align-items-center gap-1">
+                                {% if channel.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                                {% if channel.is_verified %}
+                                    <span class="badge bg-info">
+                                        <i class="bi bi-check-circle"></i> Verified
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <small class="text-muted d-block mb-1">Channel Type</small>
+                                <span class="badge bg-primary">
+                                    <i class="bi bi-{{ 'envelope' if channel.type.value == 'email' else 'telegram' if channel.type.value == 'telegram' else 'slack' }}"></i>
+                                    {{ channel.type.value.upper() }}
+                                </span>
+                            </div>
+                            
+                            {% if channel.type.value == 'email' %}
+                                <div class="mb-2">
+                                    <small class="text-muted d-block">Recipient</small>
+                                    <div class="text-monospace small">{{ channel.get_config().get('to_email', 'Not configured') }}</div>
+                                </div>
+                            {% elif channel.type.value == 'telegram' %}
+                                <div class="mb-2">
+                                    <small class="text-muted d-block">Chat ID</small>
+                                    <div class="text-monospace small">{{ channel.get_config().get('chat_id', 'Not configured') }}</div>
+                                </div>
+                            {% elif channel.type.value == 'slack' %}
+                                <div class="mb-2">
+                                    <small class="text-muted d-block">Channel</small>
+                                    <div class="text-monospace small">{{ channel.get_config().get('channel', 'Not configured') }}</div>
+                                </div>
+                            {% endif %}
+
+                            {% if channel.last_sent %}
+                                <div class="mt-3 pt-3 border-top">
+                                    <small class="text-muted d-block">Last Notification</small>
+                                    <div class="small">{{ channel.last_sent.strftime('%Y-%m-%d %H:%M UTC') }}</div>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <div class="btn-group w-100" role="group">
+                                <a href="{{ url_for('notifications.edit_channel', channel_id=channel.id) }}" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </a>
+                                <form method="POST" action="{{ url_for('notifications.test_channel', channel_id=channel.id) }}" 
+                                      class="form-inline-flex">
+                                    <button type="submit" class="btn btn-outline-info btn-sm w-100">
+                                        <i class="bi bi-send"></i> Test
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('notifications.delete_channel', channel_id=channel.id) }}"
+                                      class="form-inline-flex delete-channel-form">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-5">
+            <div class="mb-4">
+                <i class="bi bi-bell-slash icon-size-5rem icon-text-tertiary"></i>
+            </div>
+            <h4 class="fw-semibold mb-2">No Notification Channels</h4>
+            <p class="text-muted mb-4">You haven't configured any notification channels yet.</p>
+            <a href="{{ url_for('notifications.create_channel') }}" class="btn btn-primary btn-lg">
+                <i class="bi bi-plus-circle"></i> Create Your First Channel
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/channels.js') }}"></script>
+{% endblock %}

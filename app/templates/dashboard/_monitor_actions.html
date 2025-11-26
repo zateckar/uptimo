@@ -1,0 +1,11 @@
+{# Monitor action buttons partial - used to render action buttons for a monitor #}
+{# Parameters: monitor (Monitor object) #}
+<a href="{{ url_for('dashboard.edit', id=monitor.id) }}" class="btn btn-outline-success btn-sm">
+    <i class="bi bi-pencil"></i> Edit
+</a>
+<button type="button" class="btn btn-outline-warning btn-sm" data-toggle-form="toggleForm-{{ monitor.id }}">
+    <i class="bi bi-{{ 'pause' if monitor.is_active else 'play' }}"></i> {{ 'Pause' if monitor.is_active else 'Resume' }}
+</button>
+<form method="POST" action="{{ url_for('dashboard.toggle', id=monitor.id) }}" id="toggleForm-{{ monitor.id }}" class="d-none">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>

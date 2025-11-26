@@ -1,0 +1,71 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+
+# Virtual Environment
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.kilocode/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+tests/
+
+# Database (production will use volume)
+*.db
+*.db-journal
+instance/
+
+# Logs
+*.log
+logs/
+
+# Documentation
+docs/
+README.md
+AGENTS.md
+
+# CI/CD
+.github/
+
+# Cache
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.uv/
+
+# Development files
+debug_*.py
+reproduce_*.py
+test_*_manual.py
+cookies.txt
+run.py
+
+# Temporary files
+tmp/
+temp/
+*.tmp

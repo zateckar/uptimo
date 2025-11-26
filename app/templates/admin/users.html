@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - Uptimo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-people-fill"></i> User Management</h2>
+                <a href="{{ url_for('admin.create_user') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Create User
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Monitors</th>
+                                    <th>Created</th>
+                                    <th>Last Login</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ user.username }}</strong>
+                                        {% if user.id == current_user.id %}
+                                        <span class="badge bg-info text-dark ms-1">You</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        {% if user.is_admin %}
+                                        <span class="badge bg-danger">Admin</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">User</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">
+                                            {{ user.get_monitor_count() }}
+                                        </span>
+                                    </td>
+                                    <td>{{ user.created_at|local_time('%Y-%m-%d') if user.created_at else 'N/A' }}</td>
+                                    <td>
+                                        {% if user.last_login %}
+                                        {{ user.last_login.strftime('%Y-%m-%d %H:%M') }}
+                                        {% else %}
+                                        Never
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{{ url_for('admin.edit_user', user_id=user.id) }}"
+                                               class="btn btn-outline-primary"
+                                               title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{{ url_for('admin.reset_user_password', user_id=user.id) }}"
+                                               class="btn btn-outline-info"
+                                               title="Reset Password">
+                                                <i class="bi bi-key"></i>
+                                            </a>
+                                            {% if user.id != current_user.id %}
+                                            <form method="POST"
+                                                  action="{{ url_for('admin.toggle_user_active', user_id=user.id) }}"
+                                                  class="form-inline-display">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit"
+                                                        class="btn btn-outline-{{ 'warning' if user.is_active else 'success' }}"
+                                                        title="{{ 'Deactivate' if user.is_active else 'Activate' }}">
+                                                    <i class="bi bi-{{ 'pause' if user.is_active else 'play' }}-circle"></i>
+                                                </button>
+                                            </form>
+                                            <button type="button"
+                                                    class="btn btn-outline-danger"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#deleteModal{{ user.id }}"
+                                                    title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+
+                                        {% if user.id != current_user.id %}
+                                        <!-- Delete Confirmation Modal -->
+                                        <div class="modal fade" id="deleteModal{{ user.id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Confirm Delete</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p>Are you sure you want to delete user <strong>{{ user.username }}</strong>?</p>
+                                                        <p class="text-danger">
+                                                            <i class="bi bi-exclamation-triangle-fill"></i>
+                                                            This will also delete all their monitors and data. This action cannot be undone.
+                                                        </p>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}" class="form-inline-display">
+                                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                            <button type="submit" class="btn btn-danger">Delete User</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if not users %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-people icon-size-3rem" style="color: #ccc;"></i>
+                        <p class="text-muted mt-3">No users found.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

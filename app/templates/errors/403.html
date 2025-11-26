@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Access Denied - Uptimo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6 text-center py-5">
+            <div class="error-page">
+                <i class="bi bi-shield-lock-fill text-danger icon-size-5rem"></i>
+                <h1 class="display-1 fw-bold text-danger mt-4">403</h1>
+                <h2 class="mb-4">Access Denied</h2>
+                <p class="lead text-muted mb-4">
+                    You don't have permission to access this page.
+                </p>
+                <p class="text-muted mb-5">
+                    This page requires administrator privileges. If you believe you should have access, please contact your system administrator.
+                </p>
+                <div class="d-flex gap-2 justify-content-center">
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">
+                        <i class="bi bi-speedometer2"></i> Go to Dashboard
+                    </a>
+                    <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Go Back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

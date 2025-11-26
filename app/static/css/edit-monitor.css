@@ -1,0 +1,33 @@
+/* Edit Monitor Page Styles */
+.monitor-form {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Hidden elements */
+.d-none {
+    display: none !important;
+}
+
+.type-specific {
+    border: 1px solid var(--brand-primary);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    background-color: var(--brand-primary-subtle);
+}
+
+.advanced-settings {
+    display: none;
+}
+
+.advanced-settings.show {
+    display: block;
+}
+
+.notification-settings {
+    display: none;
+}
+
+.notification-settings.show {
+    display: block;
+}

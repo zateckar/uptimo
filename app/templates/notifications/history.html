@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}Notification History{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Notification History</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('notifications.channels') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Channels
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Notifications</h5>
+            </div>
+            <div class="card-body">
+                {% if notifications.items %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Monitor</th>
+                                    <th>Channel</th>
+                                    <th>Event</th>
+                                    <th>Title</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in notifications.items %}
+                                <tr>
+                                    <td>
+                                        <small title="{{ log.sent_at|local_time }}">
+                                            {{ log.sent_at|ago }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('dashboard.edit', id=log.monitor_id) }}"
+                                           class="text-decoration-none">
+                                            {{ log.monitor.name }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ log.channel.type.value.upper() }}</span>
+                                        {{ log.channel.name }}
+                                    </td>
+                                    <td>
+                                        {% if log.event_type == 'down' %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-arrow-down"></i> Down
+                                            </span>
+                                        {% elif log.event_type == 'up' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-arrow-up"></i> Up
+                                            </span>
+                                        {% elif log.event_type == 'ssl_warning' %}
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-shield-alt"></i> SSL
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-question"></i> {{ log.event_type }}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>{{ log.title }}</strong>
+                                        {% if log.incident_id %}
+                                            <span class="badge bg-secondary ms-2">Incident #{{ log.incident_id }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.sent_successfully %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check"></i> Sent
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-times"></i> Failed
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                type="button" 
+                                                data-bs-toggle="collapse" 
+                                                data-bs-target="#message_{{ log.id }}"
+                                                aria-expanded="false"
+                                                aria-controls="message_{{ log.id }}">
+                                            <i class="fas fa-eye"></i> Details
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="7" class="p-0">
+                                        <div class="collapse" id="message_{{ log.id }}">
+                                            <div class="card card-body bg-light">
+                                                <h6>Message:</h6>
+                                                <div class="border rounded p-2 bg-white">
+                                                    <pre class="mb-0 small">{{ log.message }}</pre>
+                                                </div>
+                                                
+                                                {% if log.error_message %}
+                                                    <h6 class="mt-3">Error:</h6>
+                                                    <div class="alert alert-danger small">
+                                                        {{ log.error_message }}
+                                                    </div>
+                                                {% endif %}
+                                                
+                                                <div class="row mt-3 text-muted small">
+                                                    <div class="col-md-6">
+                                                        <strong>Sent At:</strong>
+                                                        {{ log.sent_at|local_time }}
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <strong>Channel:</strong> 
+                                                        {{ log.channel.name }} ({{ log.channel.type.value }})
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    {% if notifications.pages > 1 %}
+                    <nav aria-label="Notification history pagination">
+                        <ul class="pagination justify-content-center">
+                            {% if notifications.has_prev %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('notifications.history', page=notifications.prev_num) }}">
+                                        Previous
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">Previous</span>
+                                </li>
+                            {% endif %}
+                            
+                            {% for page_num in notifications.iter_pages() %}
+                                {% if page_num %}
+                                    {% if page_num != notifications.page %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ url_for('notifications.history', page=page_num) }}">
+                                                {{ page_num }}
+                                            </a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ page_num }}</span>
+                                        </li>
+                                    {% endif %}
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">…</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if notifications.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('notifications.history', page=notifications.next_num) }}">
+                                        Next
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">Next</span>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    
+                {% else %}
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle fa-2x mb-3"></i>
+                        <h5>No Notifications Yet</h5>
+                        <p class="mb-0">
+                            No notifications have been sent yet. 
+                            Notification history will appear here once your monitors start generating alerts.
+                        </p>
+                        <div class="mt-3">
+                            <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">
+                                <i class="fas fa-tachometer-alt"></i> View Monitors
+                            </a>
+                            <a href="{{ url_for('notifications.channels') }}" class="btn btn-outline-secondary ms-2">
+                                <i class="fas fa-bell"></i> Manage Channels
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Statistics -->
+{% if notifications.items %}
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-primary">{{ notifications.total }}</h5>
+                <p class="card-text">Total Notifications</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-success">
+                    {{ notifications.items | selectattr('sent_successfully') | list | length }}
+                </h5>
+                <p class="card-text">Successful</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-danger">
+                    {{ notifications.items | rejectattr('sent_successfully') | list | length }}
+                </h5>
+                <p class="card-text">Failed</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-info">
+                    {{ notifications.items | map(attribute='monitor') | unique | list | length }}
+                </h5>
+                <p class="card-text">Monitors Affected</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/notification-history.js') }}"></script>
+{% endblock %}

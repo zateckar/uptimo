@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}{% if monitor %}Edit Kafka Monitor{% else %}Create Kafka Monitor{% endif %} - Uptimo{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/edit-monitor.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-transparent border-bottom d-flex align-items-center justify-content-between py-3">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi bi-hdd-network me-2 text-primary"></i>
+                        {% if monitor %}Edit Kafka Monitor{% else %}Create Kafka Monitor{% endif %}
+                    </h5>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" class="monitor-form needs-validation">
+                        {{ form.hidden_tag() }}
+                        {{ form.type(value='kafka', class='d-none') }}
+                        
+                        <!-- Basic Information -->
+                        <div class="form-section">
+                            <h6 class="fw-bold text-uppercase text-muted small mb-4 ls-1">Basic Information</h6>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    {{ form.name.label(class="form-label") }}
+                                    {{ form.name(class="form-control", placeholder="e.g. Production Kafka Cluster", required=true) }}
+                                    {% if form.name.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.name.errors[0] }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-12">
+                                    {{ form.target.label(class="form-label") }}
+                                    {{ form.target(class="form-control", placeholder="kafka.example.com:9092", required=true) }}
+                                    <div class="form-text">Enter the Kafka broker address (host:port)</div>
+                                    {% if form.target.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.target.errors[0] }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Check Settings -->
+                        <div class="form-section">
+                            <h6 class="fw-bold text-uppercase text-muted small mb-4 ls-1">Check Settings</h6>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    {{ form.check_interval.label(class="form-label") }}
+                                    {{ form.check_interval(class="form-select", required=true) }}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    {{ form.timeout.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.timeout(class="form-control", required=true) }}
+                                        <span class="input-group-text">sec</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    {{ form.response_time_threshold.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.response_time_threshold(class="form-control") }}
+                                        <span class="input-group-text">ms</span>
+                                    </div>
+                                    <div class="form-text">Alert if response time exceeds this threshold</div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mt-4">
+                                        {{ form.is_active(class="form-check-input") }}
+                                        {{ form.is_active.label(class="form-check-label fw-medium") }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Kafka Settings -->
+                        <div class="form-section">
+                            <h6 class="fw-bold text-uppercase text-primary small mb-4 ls-1">
+                                <i class="bi bi-hdd-network me-1"></i>Kafka Settings
+                            </h6>
+                            
+                            <!-- Authentication -->
+                            <div class="mb-4">
+                                <span class="badge bg-light text-dark border mb-3">Authentication</span>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        {{ form.kafka_security_protocol.label(class="form-label") }}
+                                        {{ form.kafka_security_protocol(class="form-select") }}
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        {{ form.kafka_sasl_mechanism.label(class="form-label") }}
+                                        {{ form.kafka_sasl_mechanism(class="form-select") }}
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        {{ form.kafka_sasl_username.label(class="form-label") }}
+                                        {{ form.kafka_sasl_username(class="form-control") }}
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        {{ form.kafka_sasl_password.label(class="form-label") }}
+                                        {{ form.kafka_sasl_password(class="form-control", type="password") }}
+                                    </div>
+                                    
+                                    <div class="col-md-12">
+                                        {{ form.kafka_oauth_token_url.label(class="form-label") }}
+                                        {{ form.kafka_oauth_token_url(class="form-control") }}
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        {{ form.kafka_oauth_client_id.label(class="form-label") }}
+                                        {{ form.kafka_oauth_client_id(class="form-control") }}
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        {{ form.kafka_oauth_client_secret.label(class="form-label") }}
+                                        {{ form.kafka_oauth_client_secret(class="form-control", type="password") }}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- SSL/TLS Certificates -->
+                            <div class="mb-4">
+                                <span class="badge bg-light text-dark border mb-3">SSL/TLS Certificates</span>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        {{ form.kafka_ssl_ca_cert.label(class="form-label") }}
+                                        {{ form.kafka_ssl_ca_cert(class="form-control font-monospace", rows="4") }}
+                                        <div class="form-text">CA certificate for SSL verification</div>
+                                    </div>
+                                    
+                                    <div class="col-md-12">
+                                        {{ form.kafka_ssl_client_cert.label(class="form-label") }}
+                                        {{ form.kafka_ssl_client_cert(class="form-control font-monospace", rows="4") }}
+                                        <div class="form-text">Client certificate for mTLS authentication</div>
+                                    </div>
+                                    
+                                    <div class="col-md-12">
+                                        {{ form.kafka_ssl_client_key.label(class="form-label") }}
+                                        {{ form.kafka_ssl_client_key(class="form-control font-monospace", rows="4") }}
+                                        <div class="form-text">Client private key for mTLS authentication</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Topic Operations -->
+                            <div class="mb-3">
+                                <span class="badge bg-light text-dark border mb-3">Topic Operations</span>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        {{ form.kafka_topic.label(class="form-label") }}
+                                        {{ form.kafka_topic(class="form-control") }}
+                                        <div class="form-text">Topic to monitor for read/write operations</div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        {{ form.kafka_consumer_group.label(class="form-label") }}
+                                        {{ form.kafka_consumer_group(class="form-control") }}
+                                        <div class="form-text">Consumer group ID for reading messages</div>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch">
+                                            {{ form.kafka_read_message(class="form-check-input") }}
+                                            {{ form.kafka_read_message.label(class="form-check-label") }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch">
+                                            {{ form.kafka_write_message(class="form-check-input") }}
+                                            {{ form.kafka_write_message.label(class="form-check-label") }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch">
+                                            {{ form.kafka_autocommit(class="form-check-input") }}
+                                            {{ form.kafka_autocommit.label(class="form-check-label") }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-12">
+                                        {{ form.kafka_message_payload.label(class="form-label") }}
+                                        {{ form.kafka_message_payload(class="form-control font-monospace", rows="4", placeholder='{"test": "message"}') }}
+                                        <div class="form-text">JSON payload to write to topic (required if write is enabled)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Advanced Settings -->
+                        <div class="form-section">
+                            <h6 class="fw-bold text-uppercase text-muted small mb-4 ls-1">Advanced Settings</h6>
+                            
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <span class="badge bg-light text-dark border">TLS/SSL</span>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="form-check form-switch">
+                                        {{ form.verify_ssl(class="form-check-input") }}
+                                        {{ form.verify_ssl.label(class="form-check-label") }}
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="form-check form-switch">
+                                        {{ form.check_cert_expiration(class="form-check-input") }}
+                                        {{ form.check_cert_expiration.label(class="form-check-label") }}
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    {{ form.cert_expiration_threshold.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.cert_expiration_threshold(class="form-control") }}
+                                        <span class="input-group-text">days</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-12 mt-3">
+                                    <span class="badge bg-light text-dark border">Domain</span>
+                                </div>
+                                
+                                <div class="col-md-5">
+                                    <div class="form-check form-switch pt-2">
+                                        {{ form.check_domain(class="form-check-input") }}
+                                        {{ form.check_domain.label(class="form-check-label") }}
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-7">
+                                    {{ form.expected_domain.label(class="form-label") }}
+                                    {{ form.expected_domain(class="form-control") }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {% if monitor %}
+                        <!-- Delete and Clone Buttons (only in edit mode) -->
+                        <div class="d-flex justify-content-between gap-2 pt-3 border-top">
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-danger" id="deleteMonitorBtn">
+                                    <i class="bi bi-trash me-1"></i>Delete Monitor
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" id="cloneMonitorBtn">
+                                    <i class="bi bi-files me-1"></i>Clone
+                                </button>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                                {{ form.submit(class="btn btn-primary px-4", value="Update Monitor") }}
+                            </div>
+                        </div>
+                        
+                        <form id="deleteForm" method="POST" action="{{ url_for('dashboard.delete', id=monitor.id) }}" class="d-none"></form>
+                        <form id="cloneForm" method="POST" action="{{ url_for('dashboard.clone', id=monitor.id) }}" class="d-none"></form>
+                        {% else %}
+                        <!-- Create Form Actions -->
+                        <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                            <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                            {{ form.submit(class="btn btn-primary px-4", value="Create Monitor") }}
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/form-handler.js') }}"></script>
+{% endblock %}

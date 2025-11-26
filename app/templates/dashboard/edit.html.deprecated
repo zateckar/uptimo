@@ -1,0 +1,696 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Monitor - Uptimo{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/edit-monitor.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-transparent border-bottom d-flex align-items-center justify-content-between py-3">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi bi-pencil-square me-2 text-warning"></i>Edit Monitor: {{ monitor.name }}
+                    </h5>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" class="monitor-form needs-validation" novalidate>
+                        {{ form.hidden_tag() }}
+                        <input type="hidden" name="form_type" value="monitor">
+                        
+                        <!-- Basic Information -->
+                        <div class="form-section">
+                            <h6 class="fw-bold text-uppercase text-muted small mb-4 ls-1">Basic Information</h6>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    {{ form.name.label(class="form-label") }}
+                                    {{ form.name(class="form-control") }}
+                                    {% if form.name.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.name.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    {{ form.type.label(class="form-label") }}
+                                    {{ form.type(class="form-select", id="monitor_type") }}
+                                    {% if form.type.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.type.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-8">
+                                    {{ form.target.label(class="form-label") }}
+                                    {{ form.target(class="form-control", id="target_field") }}
+                                    <div class="form-text" id="target_help">
+                                        Enter the URL, hostname, or IP address to monitor
+                                    </div>
+                                    {% if form.target.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.target.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4 d-none" id="port_field_group">
+                                    {{ form.port.label(class="form-label") }}
+                                    {{ form.port(class="form-control") }}
+                                    {% if form.port.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.port.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Check Settings -->
+                        <div class="form-section">
+                            <h6 class="fw-bold text-uppercase text-muted small mb-4 ls-1">Check Settings</h6>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    {{ form.check_interval.label(class="form-label") }}
+                                    {{ form.check_interval(class="form-select") }}
+                                    {% if form.check_interval.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.check_interval.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    {{ form.timeout.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.timeout(class="form-control") }}
+                                        <span class="input-group-text text-muted">sec</span>
+                                    </div>
+                                    {% if form.timeout.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.timeout.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    {{ form.response_time_threshold.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.response_time_threshold(class="form-control") }}
+                                        <span class="input-group-text text-muted">ms</span>
+                                    </div>
+                                    <div class="form-text">
+                                        Alert if response time exceeds this threshold (optional)
+                                    </div>
+                                    {% if form.response_time_threshold.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.response_time_threshold.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 d-flex align-items-center">
+                                    <div class="form-check form-switch mt-3">
+                                        {{ form.is_active(class="form-check-input") }}
+                                        {{ form.is_active.label(class="form-check-label fw-medium") }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- HTTP/HTTPS Specific Settings -->
+                        <div class="form-section type-specific d-none" id="http_settings">
+                            <h6 class="fw-bold text-uppercase text-primary small mb-4 ls-1">
+                                <i class="bi bi-globe me-1"></i>HTTP/HTTPS Settings
+                            </h6>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    {{ form.http_method.label(class="form-label fw-medium") }}
+                                    {{ form.http_method(class="form-select") }}
+                                    <div class="form-text">HTTP method for the request</div>
+                                    {% if form.http_method.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.http_method.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <!-- Spacer for alignment -->
+                                </div>
+                                
+                                <div class="col-md-12">
+                                    {{ form.http_headers.label(class="form-label") }}
+                                    {{ form.http_headers(class="form-control font-monospace", rows="3", placeholder='{"Authorization": "Bearer token", "Custom-Header": "value"}') }}
+                                    <div class="form-text">{{ form.http_headers.description }}</div>
+                                    {% if form.http_headers.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.http_headers.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-12" id="http_body_group">
+                                    {{ form.http_body.label(class="form-label") }}
+                                    {{ form.http_body(class="form-control font-monospace", rows="4", placeholder='{"key": "value"}') }}
+                                    <div class="form-text">{{ form.http_body.description }}</div>
+                                    {% if form.http_body.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.http_body.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-12">
+                                    {{ form.expected_status_codes.label(class="form-label") }}
+                                    {{ form.expected_status_codes(class="form-control", rows="1") }}
+                                    <div class="form-text">
+                                        {{ form.expected_status_codes.description }}
+                                    </div>
+                                    {% if form.expected_status_codes.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.expected_status_codes.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-8">
+                                    {{ form.string_match.label(class="form-label") }}
+                                    {{ form.string_match(class="form-control") }}
+                                    <div class="form-text">
+                                        {{ form.string_match.description }}
+                                    </div>
+                                    {% if form.string_match.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.string_match.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    {{ form.string_match_type.label(class="form-label") }}
+                                    {{ form.string_match_type(class="form-select") }}
+                                    {% if form.string_match_type.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.string_match_type.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-12">
+                                    {{ form.json_path_match.label(class="form-label") }}
+                                    {{ form.json_path_match(class="form-control font-monospace text-small") }}
+                                    <div class="form-text">
+                                        {{ form.json_path_match.description }}
+                                    </div>
+                                    {% if form.json_path_match.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.json_path_match.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- mTLS Settings -->
+                                <div class="col-md-12 mt-4">
+                                    <div class="border-top pt-3">
+                                        <h6 class="fw-bold text-uppercase text-muted small mb-3">mTLS Client Authentication (Optional)</h6>
+                                        
+                                        <div class="row g-3">
+                                            <div class="col-md-12">
+                                                {{ form.http_ssl_ca_cert.label(class="form-label") }}
+                                                {{ form.http_ssl_ca_cert(class="form-control font-monospace", rows="3", placeholder="-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----") }}
+                                                <div class="form-text">{{ form.http_ssl_ca_cert.description }}</div>
+                                                {% if form.http_ssl_ca_cert.errors %}
+                                                    <div class="invalid-feedback d-block">
+                                                        {% for error in form.http_ssl_ca_cert.errors %}
+                                                            {{ error }}
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <div class="col-md-12">
+                                                {{ form.http_ssl_client_cert.label(class="form-label") }}
+                                                {{ form.http_ssl_client_cert(class="form-control font-monospace", rows="3", placeholder="-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----") }}
+                                                <div class="form-text">{{ form.http_ssl_client_cert.description }}</div>
+                                                {% if form.http_ssl_client_cert.errors %}
+                                                    <div class="invalid-feedback d-block">
+                                                        {% for error in form.http_ssl_client_cert.errors %}
+                                                            {{ error }}
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <div class="col-md-12">
+                                                {{ form.http_ssl_client_key.label(class="form-label") }}
+                                                {{ form.http_ssl_client_key(class="form-control font-monospace", rows="3", placeholder="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----") }}
+                                                <div class="form-text">{{ form.http_ssl_client_key.description }}</div>
+                                                {% if form.http_ssl_client_key.errors %}
+                                                    <div class="invalid-feedback d-block">
+                                                        {% for error in form.http_ssl_client_key.errors %}
+                                                            {{ error }}
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Kafka Specific Settings -->
+                        <div class="form-section type-specific d-none" id="kafka_settings">
+                            <h6 class="fw-bold text-uppercase text-primary small mb-4 ls-1">
+                                <i class="bi bi-hdd-network me-1"></i>Kafka Settings
+                            </h6>
+                            
+                            <!-- Authentication -->
+                            <div class="mb-4 pb-3 border-bottom">
+                                <span class="badge bg-light text-dark border mb-3">Authentication</span>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        {{ form.kafka_security_protocol.label(class="form-label fw-medium") }}
+                                        {{ form.kafka_security_protocol(class="form-select", id="kafka_security_protocol") }}
+                                        <div class="form-text">Connection security protocol</div>
+                                    </div>
+                                    
+                                    <div class="col-md-6" id="kafka_sasl_mechanism_group">
+                                        {{ form.kafka_sasl_mechanism.label(class="form-label fw-medium") }}
+                                        {{ form.kafka_sasl_mechanism(class="form-select", id="kafka_sasl_mechanism") }}
+                                        <div class="form-text">SASL authentication mechanism</div>
+                                    </div>
+                                    
+                                    <div class="col-md-6 d-none" id="kafka_sasl_username_group">
+                                        {{ form.kafka_sasl_username.label(class="form-label") }}
+                                        {{ form.kafka_sasl_username(class="form-control", placeholder="username") }}
+                                    </div>
+                                    
+                                    <div class="col-md-6 d-none" id="kafka_sasl_password_group">
+                                        {{ form.kafka_sasl_password.label(class="form-label") }}
+                                        {{ form.kafka_sasl_password(class="form-control", type="password", placeholder="password") }}
+                                    </div>
+                                    
+                                    <div class="col-md-12 d-none" id="kafka_oauth_group">
+                                        <div class="row g-3">
+                                            <div class="col-md-12">
+                                                {{ form.kafka_oauth_token_url.label(class="form-label") }}
+                                                {{ form.kafka_oauth_token_url(class="form-control", placeholder="https://oauth.example.com/token") }}
+                                                <div class="form-text">{{ form.kafka_oauth_token_url.description }}</div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                {{ form.kafka_oauth_client_id.label(class="form-label") }}
+                                                {{ form.kafka_oauth_client_id(class="form-control") }}
+                                            </div>
+                                            <div class="col-md-6">
+                                                {{ form.kafka_oauth_client_secret.label(class="form-label") }}
+                                                {{ form.kafka_oauth_client_secret(class="form-control", type="password") }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- SSL/TLS Certificates -->
+                            <div class="mb-4 pb-3 border-bottom" id="kafka_ssl_group">
+                                <span class="badge bg-light text-dark border mb-3">SSL/TLS Certificates</span>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        {{ form.kafka_ssl_ca_cert.label(class="form-label") }}
+                                        {{ form.kafka_ssl_ca_cert(class="form-control font-monospace", rows="4", placeholder="-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----") }}
+                                        <div class="form-text">{{ form.kafka_ssl_ca_cert.description }}</div>
+                                    </div>
+                                    
+                                    <div class="col-md-12">
+                                        {{ form.kafka_ssl_client_cert.label(class="form-label") }}
+                                        {{ form.kafka_ssl_client_cert(class="form-control font-monospace", rows="4", placeholder="-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----") }}
+                                        <div class="form-text">{{ form.kafka_ssl_client_cert.description }}</div>
+                                    </div>
+                                    
+                                    <div class="col-md-12">
+                                        {{ form.kafka_ssl_client_key.label(class="form-label") }}
+                                        {{ form.kafka_ssl_client_key(class="form-control font-monospace", rows="4", placeholder="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----") }}
+                                        <div class="form-text">{{ form.kafka_ssl_client_key.description }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Topic Operations -->
+                            <div class="mb-3">
+                                <span class="badge bg-light text-dark border mb-3">Topic Operations</span>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        {{ form.kafka_topic.label(class="form-label fw-medium") }}
+                                        {{ form.kafka_topic(class="form-control", placeholder="my-topic") }}
+                                        <div class="form-text">{{ form.kafka_topic.description }}</div>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch">
+                                            {{ form.kafka_read_message(class="form-check-input", id="kafka_read_message") }}
+                                            {{ form.kafka_read_message.label(class="form-check-label") }}
+                                        </div>
+                                        <div class="form-text small">{{ form.kafka_read_message.description }}</div>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch">
+                                            {{ form.kafka_write_message(class="form-check-input", id="kafka_write_message") }}
+                                            {{ form.kafka_write_message.label(class="form-check-label") }}
+                                        </div>
+                                        <div class="form-text small">{{ form.kafka_write_message.description }}</div>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch">
+                                            {{ form.kafka_autocommit(class="form-check-input") }}
+                                            {{ form.kafka_autocommit.label(class="form-check-label") }}
+                                        </div>
+                                        <div class="form-text small">{{ form.kafka_autocommit.description }}</div>
+                                    </div>
+                                    
+                                    <div class="col-md-12 d-none" id="kafka_message_payload_group">
+                                        {{ form.kafka_message_payload.label(class="form-label") }}
+                                        {{ form.kafka_message_payload(class="form-control font-monospace", rows="4", placeholder='{"key": "value"}') }}
+                                        <div class="form-text">{{ form.kafka_message_payload.description }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Advanced Settings -->
+                        <div class="form-section">
+                            <div class="d-flex justify-content-between align-items-center mb-3 cursor-pointer" id="toggle_advanced">
+                                <h6 class="fw-bold text-uppercase text-muted small mb-0 ls-1">Advanced Settings</h6>
+                                <button type="button" class="btn btn-sm btn-link text-decoration-none p-0">
+                                    <span class="me-1">Show</span> <i class="bi bi-chevron-down"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="advanced-settings" id="advanced_settings">
+                                <!-- TLS/SSL Settings -->
+                                <div class="mb-3 pb-2 border-bottom">
+                                    <span class="badge bg-light text-dark border">TLS/SSL</span>
+                                </div>
+                                
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch">
+                                            {{ form.verify_ssl(class="form-check-input") }}
+                                            {{ form.verify_ssl.label(class="form-check-label") }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch">
+                                            {{ form.check_cert_expiration(class="form-check-input") }}
+                                            {{ form.check_cert_expiration.label(class="form-check-label") }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                        {{ form.cert_expiration_threshold.label(class="form-label") }}
+                                        <div class="input-group input-group-sm">
+                                            {{ form.cert_expiration_threshold(class="form-control") }}
+                                            <span class="input-group-text text-muted">days</span>
+                                        </div>
+                                        {% if form.cert_expiration_threshold.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.cert_expiration_threshold.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <!-- Domain Settings -->
+                                <div class="mb-3 pb-2 border-bottom">
+                                    <span class="badge bg-light text-dark border">Domain</span>
+                                </div>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-5">
+                                        <div class="form-check form-switch pt-2">
+                                            {{ form.check_domain(class="form-check-input") }}
+                                            {{ form.check_domain.label(class="form-check-label") }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-7">
+                                        {{ form.expected_domain.label(class="form-label") }}
+                                        {{ form.expected_domain(class="form-control form-control-sm") }}
+                                        {% if form.expected_domain.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {% for error in form.expected_domain.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Notification Settings -->
+                        <div class="form-section">
+                            <div class="d-flex justify-content-between align-items-center mb-3 cursor-pointer" id="toggle_notifications">
+                                <h6 class="fw-bold text-uppercase text-muted small mb-0 ls-1">
+                                    <i class="bi bi-bell me-1"></i>Notification Settings
+                                </h6>
+                                <button type="button" class="btn btn-sm btn-link text-decoration-none p-0">
+                                    <span class="me-1">Show</span> <i class="bi bi-chevron-down"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Notification Summary -->
+                            {% set notification_settings = monitor.notification_settings.all() %}
+                            <div class="mb-3">
+                                {% if notification_settings %}
+                                    <div class="alert alert-success mb-0">
+                                        <i class="bi bi-check-circle"></i>
+                                        <strong>{{ notification_settings|length }} channel(s) configured</strong>
+                                        {% for setting in notification_settings %}
+                                            <span class="badge bg-info ms-1">{{ setting.channel.name }}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-warning mb-0">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        <strong>No notifications configured</strong>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Detailed Notification Configuration -->
+                            <div class="notification-settings" id="notification_settings">
+                                <div class="border rounded p-3 bg-light">
+                                    <!-- Notification Channels -->
+                                    <div class="mb-3">
+                                        <label class="form-label fw-medium">Notification Channels</label>
+                                        {% if available_channels %}
+                                            <div class="form-text mb-2">
+                                                Select which notification channels to use for this monitor.
+                                                <a href="{{ url_for('notifications.create_channel') }}" target="_blank">Create new channel</a>
+                                                if needed.
+                                            </div>
+                                            {% for channel in available_channels %}
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox"
+                                                           name="channel_ids"
+                                                           value="{{ channel.id }}"
+                                                           id="channel_{{ channel.id }}"
+                                                           form="notificationForm"
+                                                           {% if channel.id in (notification_form.channel_ids.data or []) %}checked{% endif %}>
+                                                    <label class="form-check-label" for="channel_{{ channel.id }}">
+                                                        <strong>{{ channel.name }}</strong>
+                                                        <span class="badge bg-info ms-2">{{ channel.type.value.upper() }}</span>
+                                                        {% if not channel.is_active %}
+                                                            <span class="badge bg-secondary ms-1">Inactive</span>
+                                                        {% endif %}
+                                                        {% if not channel.is_verified %}
+                                                            <span class="badge bg-warning ms-1">Not Verified</span>
+                                                        {% endif %}
+                                                    </label>
+                                                </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <div class="alert alert-warning">
+                                                <i class="bi bi-exclamation-triangle"></i>
+                                                You don't have any notification channels configured.
+                                                <a href="{{ url_for('notifications.create_channel') }}" class="alert-link">
+                                                    Create your first notification channel
+                                                </a>
+                                                to enable notifications.
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Notification Settings -->
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-4">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox"
+                                                       name="notify_on_down"
+                                                       id="notify_on_down"
+                                                       form="notificationForm"
+                                                       {% if notification_form.notify_on_down.data %}checked{% endif %}>
+                                                <label class="form-check-label" for="notify_on_down">
+                                                    <i class="bi bi-arrow-down text-danger"></i> Notify on Down
+                                                </label>
+                                                <div class="form-text small">Send alert when monitor goes down</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox"
+                                                       name="notify_on_up"
+                                                       id="notify_on_up"
+                                                       form="notificationForm"
+                                                       {% if notification_form.notify_on_up.data %}checked{% endif %}>
+                                                <label class="form-check-label" for="notify_on_up">
+                                                    <i class="bi bi-arrow-up text-success"></i> Notify on Recovery
+                                                </label>
+                                                <div class="form-text small">Send alert when monitor comes back up</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox"
+                                                       name="notify_on_ssl_warning"
+                                                       id="notify_on_ssl_warning"
+                                                       form="notificationForm"
+                                                       {% if notification_form.notify_on_ssl_warning.data %}checked{% endif %}>
+                                                <label class="form-check-label" for="notify_on_ssl_warning">
+                                                    <i class="bi bi-shield-check text-warning"></i> SSL Warnings
+                                                </label>
+                                                <div class="form-text small">Alert about certificate issues</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Consecutive Checks Threshold -->
+                                    <div class="mb-3">
+                                        <label for="consecutive_checks_threshold" class="form-label fw-medium">
+                                            <i class="bi bi-funnel text-info"></i> Consecutive Failures Threshold
+                                        </label>
+                                        <input type="number"
+                                               class="form-control"
+                                               id="consecutive_checks_threshold"
+                                               name="consecutive_checks_threshold"
+                                               form="notificationForm"
+                                               min="1"
+                                               max="10"
+                                               value="{{ notification_form.consecutive_checks_threshold.data or 1 }}">
+                                        <div class="form-text">
+                                            Number of consecutive DOWN checks before sending notification (prevents false alerts). Default is 1.
+                                        </div>
+                                    </div>
+
+                                    <!-- Escalation Settings -->
+                                    <div class="mb-3">
+                                        <label for="escalate_after_minutes" class="form-label fw-medium">
+                                            <i class="bi bi-clock text-info"></i> Escalation (Optional)
+                                        </label>
+                                        <div class="input-group">
+                                            <input type="number"
+                                                   class="form-control"
+                                                   id="escalate_after_minutes"
+                                                   name="escalate_after_minutes"
+                                                   form="notificationForm"
+                                                   min="1"
+                                                   max="1440"
+                                                   value="{{ notification_form.escalate_after_minutes.data or '' }}"
+                                                   placeholder="Leave empty to disable">
+                                            <span class="input-group-text text-muted">min</span>
+                                        </div>
+                                        <div class="form-text">
+                                            Send escalation notification if monitor remains down for this many minutes (max 1440 = 24 hours).
+                                        </div>
+                                    </div>
+
+                                    <div class="d-grid">
+                                        <button type="submit" form="notificationForm" class="btn btn-primary">
+                                            <i class="bi bi-bell"></i> Save Notification Settings
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Form Actions -->
+                        <div class="d-flex justify-content-between gap-2 pt-3 border-top">
+                            <button type="button" class="btn btn-outline-danger" id="deleteMonitorBtn">
+                                <i class="bi bi-trash"></i> Delete Monitor
+                            </button>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                                    Cancel
+                                </a>
+                                {{ form.submit(class="btn btn-warning px-4") }}
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- Separate notification form (hidden, submitted via form attribute) -->
+                    <form method="POST" id="notificationForm" class="d-none">
+                        <input type="hidden" name="form_type" value="notifications">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    </form>
+                    
+                    <!-- Separate delete form -->
+                    <form method="POST" action="{{ url_for('dashboard.delete', id=monitor.id) }}" id="deleteForm" class="d-none">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/edit-monitor.js') }}"></script>
+{% endblock %}
