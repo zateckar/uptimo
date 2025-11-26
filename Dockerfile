@@ -1,17 +1,41 @@
+# syntax=docker/dockerfile:1.4
 # Multi-stage build for Uptimo monitoring application
+
 FROM python:3.11-slim AS builder
 
-# Install UV package manager
+# Install UV package manager (copy and ensure executable)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+RUN chmod +x /usr/local/bin/uv
 
-# Set working directory
 WORKDIR /app
 
-# Copy dependency files
+# Install build-time system dependencies needed to build native Python extensions.
+# If you need Rust for any dependency build, add rustc cargo to this list.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential \
+      gcc \
+      libssl-dev \
+      libffi-dev \
+      libpq-dev \
+      ca-certificates \
+      curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy only dependency files first (cache-friendly)
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies
-RUN uv sync --frozen --no-dev
+# Use BuildKit cache mounts for pip and uv caches. Print versions and fail with extra debug if uv sync fails.
+# This requires building with BuildKit (docker buildx) and the Dockerfile syntax directive above.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=cache,target=/root/.cache/uv \
+    uv --version && python --version && \
+    uv sync --frozen --no-dev || ( \
+      echo "=== uv sync failed ==="; \
+      echo "uv/pip/python versions:"; uv --version || true; python --version || true; \
+      echo "ls -la /app:"; ls -la /app || true; \
+      echo "ls -la /root/.cache:"; ls -la /root/.cache || true; \
+      false )
 
 # Production stage
 FROM python:3.11-slim
@@ -19,23 +43,24 @@ FROM python:3.11-slim
 # Install required system packages for monitoring features
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    iputils-ping \
-    ca-certificates && \
+      iputils-ping \
+      ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
+# Create non-root user and app dirs (do this before copying files to set correct ownership)
 RUN useradd -m -u 1000 uptimo && \
     mkdir -p /app/instance && \
     chown -R uptimo:uptimo /app
 
-# Set working directory
 WORKDIR /app
 
-# Copy UV and virtual environment from builder
+# Copy UV binary and virtual environment from builder
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+RUN chmod +x /usr/local/bin/uv
+
 COPY --from=builder /app/.venv /app/.venv
 
-# Copy application code
+# Copy application code and make sure files are owned by uptime user
 COPY --chown=uptimo:uptimo . .
 
 # Set environment variables
@@ -44,9 +69,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
     FLASK_ENV=production \
     DATABASE_URL=sqlite:///instance/uptimo.db
 
-# Create instance directory with proper permissions
-RUN mkdir -p instance && \
-    chown -R uptimo:uptimo instance
+# Ensure instance dir ownership
+RUN mkdir -p instance && chown -R uptimo:uptimo instance
 
 # Switch to non-root user
 USER uptimo
