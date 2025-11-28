@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 # Multi-stage build for Uptimo monitoring application
 
-FROM python:3.11-slim AS builder
+FROM python:3.13-slim AS builder
 
 # Install UV package manager (copy and ensure executable)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -38,7 +38,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
       false )
 
 # Production stage
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 # Install required system packages for monitoring features
 RUN apt-get update && \
