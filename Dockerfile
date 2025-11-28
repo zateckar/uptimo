@@ -12,22 +12,24 @@ RUN apt-get update && \
 # Install UV
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Create app user and directory
+WORKDIR /app
+
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies as root
+RUN uv sync --frozen --no-dev
+
+# Copy application code
+COPY . .
+
+# Create non-root user and set ownership
 RUN useradd -m -u 1000 uptimo && \
     mkdir -p /app/instance && \
     chown -R uptimo:uptimo /app
 
-WORKDIR /app
-
-# Copy dependency files
-COPY --chown=uptimo:uptimo pyproject.toml uv.lock ./
-
-# Copy application code
-COPY --chown=uptimo:uptimo . .
-
-# Install dependencies as uptimo user
+# Switch to non-root user
 USER uptimo
-RUN uv sync --frozen --no-dev
 
 # Set environment
 ENV PATH="/app/.venv/bin:$PATH" \
