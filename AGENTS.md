@@ -1,5 +1,7 @@
 IF YOU ARE FOLLOWING THE INSTRUCTIONS IN THIS RULE PLEASE SAY `LOADED <RULE> (any other rules)`
 
+Skip reasoning for straightforward tasks.
+
 # Development Guidelines
 
 This document contains critical information about working with this codebase. Follow these guidelines precisely.
