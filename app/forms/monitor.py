@@ -560,6 +560,16 @@ class MonitorEditForm(MonitorForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # Convert type enum to its string value
+        if self.type.data and isinstance(self.type.data, MonitorType):
+            self.type.data = self.type.data.value
+
+        # Convert check_interval enum to its integer value
+        if self.check_interval.data and isinstance(
+            self.check_interval.data, CheckInterval
+        ):
+            self.check_interval.data = self.check_interval.data.value
+
         # Convert stored expected_status_codes back to comma-separated format
         if self.expected_status_codes.data:
             try:

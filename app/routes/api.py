@@ -11,7 +11,7 @@ from app.models.notification import (
     NotificationLog,
 )
 from app.notification.service import notification_service
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 bp = Blueprint("api", __name__)
 
@@ -144,7 +144,7 @@ def update_monitor(id):
                 else:
                     setattr(monitor, field, data[field])
 
-        monitor.updated_at = datetime.utcnow()
+        monitor.updated_at = datetime.now(timezone.utc)
         db.session.commit()
 
         return jsonify(monitor.to_dict())
@@ -181,7 +181,7 @@ def get_monitor_check_results(id):
     per_page = request.args.get("per_page", 100, type=int)
     hours = request.args.get("hours", 24, type=int)
 
-    start_time = datetime.utcnow() - timedelta(hours=hours)
+    start_time = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     check_results = (
         CheckResult.query.filter_by(monitor_id=id)
@@ -243,9 +243,11 @@ def get_incidents():
 @login_required
 def dashboard_overview():
     """Get dashboard overview data"""
+    from typing import Dict, Any
+    
     monitors = Monitor.query.filter_by(user_id=current_user.id).all()
 
-    overview = {
+    overview: Dict[str, Any] = {
         "total_monitors": len(monitors),
         "active_monitors": sum(1 for m in monitors if m.is_active),
         "monitors_by_status": {
@@ -262,12 +264,12 @@ def dashboard_overview():
 
     if monitors:
         # Count by type
+        monitors_by_type: Dict[str, int] = {}
         for monitor in monitors:
             if monitor.is_active:
                 type_name = monitor.type.value.upper()
-                overview["monitors_by_type"][type_name] = (
-                    overview["monitors_by_type"].get(type_name, 0) + 1
-                )
+                monitors_by_type[type_name] = monitors_by_type.get(type_name, 0) + 1
+        overview["monitors_by_type"] = monitors_by_type
 
         # Calculate overall uptime
         active_monitors = [m for m in monitors if m.is_active]

@@ -271,9 +271,9 @@ class Monitor(db.Model):
 
     def get_recent_checks(self, count: int = 10) -> List[CheckResult]:
         """Get most recent check results."""
-        return (
-            self.check_results.order_by(CheckResult.timestamp.desc()).limit(count).all()
-        )
+        from sqlalchemy import desc
+        query = self.check_results.order_by(desc(CheckResult.timestamp))  # type: ignore
+        return query.limit(count).all()  # type: ignore
 
     def get_checks_by_timespan(self, hours: int) -> List[CheckResult]:
         """Get check results for the specified timespan in hours."""
@@ -396,9 +396,9 @@ class Monitor(db.Model):
             and previous_status != "down"
         ):
             # Get the latest check result to extract error message
-            latest_check = self.check_results.order_by(
-                CheckResult.timestamp.desc()
-            ).first()
+            from sqlalchemy import desc
+            query = self.check_results.order_by(desc(CheckResult.timestamp))  # type: ignore
+            latest_check = query.first()  # type: ignore
 
             error_message = None
             if latest_check and latest_check.error_message:
@@ -502,11 +502,11 @@ class Monitor(db.Model):
             ]
 
         if include_incidents:
+            from sqlalchemy import desc
+            query = self.incidents.order_by(desc(Incident.started_at))  # type: ignore
             data["incidents"] = [
                 incident.to_dict()
-                for incident in self.incidents.order_by(
-                    Incident.started_at.desc()
-                ).limit(10)
+                for incident in query.limit(10)  # type: ignore
             ]
 
         return data

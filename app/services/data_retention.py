@@ -234,7 +234,7 @@ class DataRetentionService:
         Returns:
             Dictionary with cleanup statistics for each data type
         """
-        cleanup_summary = {
+        cleanup_summary: Dict[str, Any] = {
             "started_at": datetime.now(timezone.utc).isoformat(),
             "results": {},
             "total_deleted": 0,
@@ -243,18 +243,22 @@ class DataRetentionService:
         try:
             # Clean up check results
             deleted_results, results_info = self.cleanup_old_check_results()
-            cleanup_summary["results"]["check_results"] = results_info
-            cleanup_summary["total_deleted"] += deleted_results
+            results_dict: Dict[str, Any] = cleanup_summary["results"]  # type: ignore
+            results_dict["check_results"] = results_info
+            total_deleted: int = cleanup_summary["total_deleted"]  # type: ignore
+            cleanup_summary["total_deleted"] = total_deleted + deleted_results
 
             # Clean up incidents
             deleted_incidents, incidents_info = self.cleanup_old_incidents()
-            cleanup_summary["results"]["incidents"] = incidents_info
-            cleanup_summary["total_deleted"] += deleted_incidents
+            results_dict["incidents"] = incidents_info
+            total_deleted = cleanup_summary["total_deleted"]  # type: ignore
+            cleanup_summary["total_deleted"] = total_deleted + deleted_incidents
 
             # Clean up notification logs
             deleted_logs, logs_info = self.cleanup_old_notification_logs()
-            cleanup_summary["results"]["notification_logs"] = logs_info
-            cleanup_summary["total_deleted"] += deleted_logs
+            results_dict["notification_logs"] = logs_info
+            total_deleted = cleanup_summary["total_deleted"]  # type: ignore
+            cleanup_summary["total_deleted"] = total_deleted + deleted_logs
 
             cleanup_summary["completed_at"] = datetime.now(timezone.utc).isoformat()
             cleanup_summary["success"] = True
@@ -276,60 +280,48 @@ class DataRetentionService:
     def get_database_stats(self) -> Dict[str, Any]:
         """Get current database statistics for monitoring."""
         try:
+            # Get oldest check result
+            oldest_check = CheckResult.query.order_by(CheckResult.timestamp.asc()).first()
+            oldest_check_record = oldest_check.timestamp.isoformat() if oldest_check else None
+            
+            # Get newest check result
+            newest_check = CheckResult.query.order_by(CheckResult.timestamp.desc()).first()
+            newest_check_record = newest_check.timestamp.isoformat() if newest_check else None
+            
+            # Get oldest incident
+            oldest_incident = Incident.query.order_by(Incident.started_at.asc()).first()
+            oldest_incident_record = oldest_incident.started_at.isoformat() if oldest_incident else None
+            
+            # Get newest incident
+            newest_incident = Incident.query.order_by(Incident.started_at.desc()).first()
+            newest_incident_record = newest_incident.started_at.isoformat() if newest_incident else None
+            
+            # Get oldest notification log
+            oldest_log = NotificationLog.query.order_by(NotificationLog.sent_at.asc()).first()
+            oldest_log_record = oldest_log.sent_at.isoformat() if oldest_log else None
+            
+            # Get newest notification log
+            newest_log = NotificationLog.query.order_by(NotificationLog.sent_at.desc()).first()
+            newest_log_record = newest_log.sent_at.isoformat() if newest_log else None
+            
             stats = {
                 "check_results": {
                     "total_count": CheckResult.query.count(),
-                    "oldest_record": (
-                        CheckResult.query.order_by(CheckResult.timestamp.asc())
-                        .first()
-                        .timestamp.isoformat()
-                        if CheckResult.query.first()
-                        else None
-                    ),
-                    "newest_record": (
-                        CheckResult.query.order_by(CheckResult.timestamp.desc())
-                        .first()
-                        .timestamp.isoformat()
-                        if CheckResult.query.first()
-                        else None
-                    ),
+                    "oldest_record": oldest_check_record,
+                    "newest_record": newest_check_record,
                 },
                 "incidents": {
                     "total_count": Incident.query.count(),
                     "active_count": Incident.query.filter(
                         Incident.resolved_at.is_(None)
                     ).count(),
-                    "oldest_record": (
-                        Incident.query.order_by(Incident.started_at.asc())
-                        .first()
-                        .started_at.isoformat()
-                        if Incident.query.first()
-                        else None
-                    ),
-                    "newest_record": (
-                        Incident.query.order_by(Incident.started_at.desc())
-                        .first()
-                        .started_at.isoformat()
-                        if Incident.query.first()
-                        else None
-                    ),
+                    "oldest_record": oldest_incident_record,
+                    "newest_record": newest_incident_record,
                 },
                 "notification_logs": {
                     "total_count": NotificationLog.query.count(),
-                    "oldest_record": (
-                        NotificationLog.query.order_by(NotificationLog.sent_at.asc())
-                        .first()
-                        .sent_at.isoformat()
-                        if NotificationLog.query.first()
-                        else None
-                    ),
-                    "newest_record": (
-                        NotificationLog.query.order_by(NotificationLog.sent_at.desc())
-                        .first()
-                        .sent_at.isoformat()
-                        if NotificationLog.query.first()
-                        else None
-                    ),
+                    "oldest_record": oldest_log_record,
+                    "newest_record": newest_log_record,
                 },
                 "retention_policies": self.retention_policies.copy(),
                 "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -343,7 +335,7 @@ class DataRetentionService:
 
     def estimate_cleanup_impact(self) -> Dict[str, Any]:
         """Estimate the impact of running cleanup without actually deleting data."""
-        estimate = {
+        estimate: Dict[str, Any] = {
             "estimated_deletions": {},
             "total_estimated_deletions": 0,
             "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -357,12 +349,14 @@ class DataRetentionService:
             check_results_to_delete = CheckResult.query.filter(
                 CheckResult.timestamp < cutoff_date
             ).count()
-            estimate["estimated_deletions"]["check_results"] = {
+            deletions_dict: Dict[str, Any] = estimate["estimated_deletions"]  # type: ignore
+            deletions_dict["check_results"] = {
                 "count": check_results_to_delete,
                 "cutoff_date": cutoff_date.isoformat(),
                 "retention_days": self.get_retention_policy("check_results"),
             }
-            estimate["total_estimated_deletions"] += check_results_to_delete
+            total_est: int = estimate["total_estimated_deletions"]  # type: ignore
+            estimate["total_estimated_deletions"] = total_est + check_results_to_delete
 
             # Estimate incidents to delete
             cutoff_date = datetime.now(timezone.utc) - timedelta(
@@ -371,12 +365,13 @@ class DataRetentionService:
             incidents_to_delete = Incident.query.filter(
                 Incident.resolved_at.isnot(None), Incident.resolved_at < cutoff_date
             ).count()
-            estimate["estimated_deletions"]["incidents"] = {
+            deletions_dict["incidents"] = {
                 "count": incidents_to_delete,
                 "cutoff_date": cutoff_date.isoformat(),
                 "retention_days": self.get_retention_policy("incidents"),
             }
-            estimate["total_estimated_deletions"] += incidents_to_delete
+            total_est = estimate["total_estimated_deletions"]  # type: ignore
+            estimate["total_estimated_deletions"] = total_est + incidents_to_delete
 
             # Estimate notification logs to delete
             cutoff_date = datetime.now(timezone.utc) - timedelta(
@@ -385,12 +380,13 @@ class DataRetentionService:
             notification_logs_to_delete = NotificationLog.query.filter(
                 NotificationLog.sent_at < cutoff_date
             ).count()
-            estimate["estimated_deletions"]["notification_logs"] = {
+            deletions_dict["notification_logs"] = {
                 "count": notification_logs_to_delete,
                 "cutoff_date": cutoff_date.isoformat(),
                 "retention_days": self.get_retention_policy("notification_logs"),
             }
-            estimate["total_estimated_deletions"] += notification_logs_to_delete
+            total_est = estimate["total_estimated_deletions"]  # type: ignore
+            estimate["total_estimated_deletions"] = total_est + notification_logs_to_delete
 
             return estimate
 

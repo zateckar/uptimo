@@ -1,4 +1,6 @@
 import json
+from typing import Any
+
 from flask_wtf import FlaskForm
 from wtforms import (
     StringField,
@@ -122,6 +124,8 @@ class NotificationChannelForm(FlaskForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.channel_type = None
+        self.user_id: int | None = None
+        self.obj: Any | None = None
 
     def validate_name(self, name):
         """Validate channel name uniqueness for the user"""

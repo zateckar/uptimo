@@ -38,7 +38,7 @@ def create_channel():
         try:
             channel = NotificationChannel(
                 user_id=current_user.id,
-                name=form.name.data,
+                name=form.name.data or "",
                 type=NotificationType(form.type.data),
                 config=form.get_config(),
                 is_active=form.is_active.data,

@@ -1,12 +1,13 @@
 """Timezone utilities for converting UTC times to user-configured timezone."""
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Union
 
 import pytz
+from pytz.tzinfo import DstTzInfo, StaticTzInfo
 
 
-def get_app_timezone() -> pytz.timezone:
+def get_app_timezone() -> Union[DstTzInfo, StaticTzInfo, pytz.UTC.__class__]:
     """Get the application's configured timezone.
 
     Returns:

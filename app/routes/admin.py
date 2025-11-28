@@ -265,7 +265,7 @@ def delete_old_records() -> Any:
 
         # Delete old check results
         deleted_count = CheckResult.query.filter(
-            CheckResult.checked_at < cutoff_date
+            CheckResult.timestamp < cutoff_date
         ).delete(synchronize_session=False)
 
         db.session.commit()

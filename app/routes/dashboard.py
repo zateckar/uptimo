@@ -753,7 +753,8 @@ def stream():
     # Capture user ID and app object outside the generator function
     # to ensure they're available in the separate thread context
     user_id = current_user.id
-    app = current_app._get_current_object()
+    from flask import current_app as app_context
+    app = app_context._get_current_object()  # type: ignore
 
     def generate():
         # Store the last known meaningful state to avoid sending duplicate data
@@ -932,7 +933,8 @@ def monitor_stream(id: int):
     # to ensure they're available in the separate thread context
     user_id = current_user.id
     monitor_id = id
-    app = current_app._get_current_object()
+    from flask import current_app as app_context
+    app = app_context._get_current_object()  # type: ignore
 
     # Get timespan parameter (default to 24h)
     timespan = request.args.get("timespan", "24h")

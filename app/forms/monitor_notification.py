@@ -8,8 +8,8 @@ from app import db
 class FormField:
     """Simple class to hold form field data."""
 
-    def __init__(self, data=None):
-        self.data = data
+    def __init__(self, data: bool | int | list[str] | None = None):
+        self.data: bool | int | list[str] | None = data
 
 
 class MonitorNotificationForm:
@@ -75,14 +75,13 @@ class MonitorNotificationForm:
             errors.append("At least one notification channel must be selected")
 
         # Validate consecutive checks threshold
-        if self.consecutive_checks_threshold.data and (
-            self.consecutive_checks_threshold.data < 1
-            or self.consecutive_checks_threshold.data > 10
-        ):
+        threshold_data = self.consecutive_checks_threshold.data
+        if isinstance(threshold_data, int) and (threshold_data < 1 or threshold_data > 10):
             errors.append("Consecutive checks threshold must be between 1 and 10")
 
         # Validate escalation logic
-        if self.escalate_after_minutes.data and self.escalate_after_minutes.data <= 0:
+        escalate_data = self.escalate_after_minutes.data
+        if isinstance(escalate_data, int) and escalate_data <= 0:
             errors.append("Escalation time must be greater than 0")
 
         return len(errors) == 0, errors
@@ -92,7 +91,10 @@ class MonitorNotificationForm:
         if not self.validate()[0]:
             return False, "Validation failed"
 
-        selected_channel_ids = self.channel_ids.data or []
+        channel_ids_data = self.channel_ids.data
+        selected_channel_ids: list[str] = (
+            channel_ids_data if isinstance(channel_ids_data, list) else []
+        )
 
         # Delete existing settings for channels not selected
         existing_settings = monitor.notification_settings.all()
@@ -111,13 +113,13 @@ class MonitorNotificationForm:
 
             if existing:
                 # Update existing setting
-                existing.notify_on_down = self.notify_on_down.data
-                existing.notify_on_up = self.notify_on_up.data
-                existing.notify_on_ssl_warning = self.notify_on_ssl_warning.data
+                existing.notify_on_down = bool(self.notify_on_down.data) if self.notify_on_down.data is not None else True
+                existing.notify_on_up = bool(self.notify_on_up.data) if self.notify_on_up.data is not None else True
+                existing.notify_on_ssl_warning = bool(self.notify_on_ssl_warning.data) if self.notify_on_ssl_warning.data is not None else True
                 existing.consecutive_checks_threshold = (
-                    self.consecutive_checks_threshold.data
+                    int(self.consecutive_checks_threshold.data) if isinstance(self.consecutive_checks_threshold.data, int) else 1
                 )
-                existing.escalate_after_minutes = self.escalate_after_minutes.data
+                existing.escalate_after_minutes = int(self.escalate_after_minutes.data) if isinstance(self.escalate_after_minutes.data, int) else None
             else:
                 # Create new setting
                 from app.models.notification import MonitorNotification
@@ -126,13 +128,13 @@ class MonitorNotificationForm:
                     monitor_id=monitor.id,
                     channel_id=channel_id_int,
                     is_enabled=True,
-                    notify_on_down=self.notify_on_down.data,
-                    notify_on_up=self.notify_on_up.data,
-                    notify_on_ssl_warning=self.notify_on_ssl_warning.data,
+                    notify_on_down=bool(self.notify_on_down.data) if self.notify_on_down.data is not None else True,
+                    notify_on_up=bool(self.notify_on_up.data) if self.notify_on_up.data is not None else True,
+                    notify_on_ssl_warning=bool(self.notify_on_ssl_warning.data) if self.notify_on_ssl_warning.data is not None else True,
                     consecutive_checks_threshold=(
-                        self.consecutive_checks_threshold.data
+                        int(self.consecutive_checks_threshold.data) if isinstance(self.consecutive_checks_threshold.data, int) else 1
                     ),
-                    escalate_after_minutes=self.escalate_after_minutes.data,
+                    escalate_after_minutes=int(self.escalate_after_minutes.data) if isinstance(self.escalate_after_minutes.data, int) else None,
                 )
                 db.session.add(new_setting)
 

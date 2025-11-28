@@ -15,7 +15,7 @@ except ImportError:
     ping3 = None
 
 try:
-    import dns.resolver
+    import dns.resolver  # type: ignore
 
     DNS_AVAILABLE = True
 except ImportError:
@@ -94,12 +94,14 @@ class MonitorChecker:
             return {"error": "whois library not available"}
 
         try:
-            domain_info = whois.whois(hostname)
+            domain_info_result = whois.whois(hostname)
+            # whois returns a dict-like object, access attributes safely
+            domain_info = domain_info_result if isinstance(domain_info_result, dict) else domain_info_result.__dict__
 
             # Parse dates to ensure they're serializable
-            creation_date = domain_info.creation_date
-            expiration_date = domain_info.expiration_date
-            updated_date = domain_info.updated_date
+            creation_date = domain_info.get("creation_date") if isinstance(domain_info, dict) else getattr(domain_info_result, "creation_date", None)
+            expiration_date = domain_info.get("expiration_date") if isinstance(domain_info, dict) else getattr(domain_info_result, "expiration_date", None)
+            updated_date = domain_info.get("updated_date") if isinstance(domain_info, dict) else getattr(domain_info_result, "updated_date", None)
 
             # Handle lists (some whois returns lists)
             if isinstance(creation_date, list):
@@ -116,20 +118,28 @@ class MonitorChecker:
                     expiration_date = expiration_date.replace(tzinfo=timezone.utc)
                 days_to_expiration = (expiration_date - datetime.now(timezone.utc)).days
 
+            # Get other attributes safely
+            registrar = domain_info.get("registrar") if isinstance(domain_info, dict) else getattr(domain_info_result, "registrar", None)
+            name_servers = domain_info.get("name_servers") if isinstance(domain_info, dict) else getattr(domain_info_result, "name_servers", None)
+            status_val = domain_info.get("status") if isinstance(domain_info, dict) else getattr(domain_info_result, "status", None)
+            registrant = domain_info.get("registrant") if isinstance(domain_info, dict) else getattr(domain_info_result, "registrant", None)
+            admin_emails = domain_info.get("admin_emails") if isinstance(domain_info, dict) else getattr(domain_info_result, "admin_emails", None)
+            tech_emails = domain_info.get("tech_emails") if isinstance(domain_info, dict) else getattr(domain_info_result, "tech_emails", None)
+
             return {
                 "domain": hostname,
-                "registrar": domain_info.registrar,
+                "registrar": registrar,
                 "creation_date": creation_date.isoformat() if creation_date else None,
                 "expiration_date": expiration_date.isoformat()
                 if expiration_date
                 else None,
                 "updated_date": updated_date.isoformat() if updated_date else None,
                 "days_to_expiration": days_to_expiration,
-                "name_servers": domain_info.name_servers,
-                "status": domain_info.status,
-                "registrant": domain_info.registrant,
-                "admin_email": domain_info.admin_emails,
-                "tech_email": domain_info.tech_emails,
+                "name_servers": name_servers,
+                "status": status_val,
+                "registrant": registrant,
+                "admin_email": admin_emails,
+                "tech_email": tech_emails,
             }
         except Exception as e:
             return {"error": str(e), "domain": hostname}
@@ -140,43 +150,45 @@ class MonitorChecker:
             return {"error": "dns library not available"}
 
         try:
-            dns_info = {}
+            import dns.resolver  # type: ignore
+            
+            dns_info: Dict[str, Any] = {}
 
             # Get A records
             try:
-                a_records = dns.resolver.resolve(hostname, "A")
+                a_records = dns.resolver.resolve(hostname, "A")  # type: ignore
                 dns_info["a_records"] = [str(record) for record in a_records]
-            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):  # type: ignore
                 dns_info["a_records"] = []
 
             # Get AAAA records (IPv6)
             try:
-                aaaa_records = dns.resolver.resolve(hostname, "AAAA")
+                aaaa_records = dns.resolver.resolve(hostname, "AAAA")  # type: ignore
                 dns_info["aaaa_records"] = [str(record) for record in aaaa_records]
-            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):  # type: ignore
                 dns_info["aaaa_records"] = []
 
             # Get MX records
             try:
-                mx_records = dns.resolver.resolve(hostname, "MX")
+                mx_records = dns.resolver.resolve(hostname, "MX")  # type: ignore
                 dns_info["mx_records"] = [
                     f"{record.exchange} ({record.preference})" for record in mx_records
                 ]
-            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):  # type: ignore
                 dns_info["mx_records"] = []
 
             # Get NS records
             try:
-                ns_records = dns.resolver.resolve(hostname, "NS")
+                ns_records = dns.resolver.resolve(hostname, "NS")  # type: ignore
                 dns_info["ns_records"] = [str(record) for record in ns_records]
-            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):  # type: ignore
                 dns_info["ns_records"] = []
 
             # Get TXT records
             try:
-                txt_records = dns.resolver.resolve(hostname, "TXT")
+                txt_records = dns.resolver.resolve(hostname, "TXT")  # type: ignore
                 dns_info["txt_records"] = [str(record) for record in txt_records]
-            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):  # type: ignore
                 dns_info["txt_records"] = []
 
             return dns_info
@@ -209,7 +221,7 @@ class HTTPChecker(MonitorChecker):
 
         try:
             # Prepare request parameters
-            request_kwargs = {
+            request_kwargs: Dict[str, Any] = {
                 "headers": headers,
                 "timeout": self.monitor.timeout,
                 "allow_redirects": True,
@@ -602,7 +614,7 @@ class KafkaChecker(MonitorChecker):
     """Checker for Kafka broker connectivity with advanced features."""
 
     def check(self) -> CheckResultData:
-        if not KAFKA_AVAILABLE or not KafkaProducer:
+        if not KAFKA_AVAILABLE:
             return CheckResultData(
                 status="down",
                 error_message="Kafka library not available. Install kafka-python package.",
@@ -613,10 +625,12 @@ class KafkaChecker(MonitorChecker):
             kafka_config = self._build_kafka_config(bootstrap_servers)
 
             def test_kafka_connection():
+                from kafka import KafkaProducer as KafkaProducerClass
+                
                 additional_data: Dict[str, Any] = {}
 
                 # Test basic connectivity
-                producer = KafkaProducer(**kafka_config)
+                producer = KafkaProducerClass(**kafka_config)
                 producer.bootstrap_connected()
                 producer.close()
 
@@ -771,6 +785,8 @@ class KafkaChecker(MonitorChecker):
     def _read_latest_message(self, kafka_config: Dict[str, Any]) -> Dict[str, Any]:
         """Read the latest message from the configured topic."""
         try:
+            from kafka import KafkaConsumer as KafkaConsumerClass
+            
             consumer_config = {
                 k: v for k, v in kafka_config.items() if k != "value_serializer"
             }
@@ -779,7 +795,7 @@ class KafkaChecker(MonitorChecker):
             consumer_config["consumer_timeout_ms"] = 5000
             consumer_config["value_deserializer"] = lambda v: v.decode("utf-8")
 
-            consumer = KafkaConsumer(self.monitor.kafka_topic, **consumer_config)
+            consumer = KafkaConsumerClass(self.monitor.kafka_topic, **consumer_config)
 
             # Read one message
             message = None
@@ -807,7 +823,9 @@ class KafkaChecker(MonitorChecker):
     def _write_message(self, kafka_config: Dict[str, Any]) -> Dict[str, Any]:
         """Write a test message to the configured topic."""
         try:
-            producer = KafkaProducer(**kafka_config)
+            from kafka import KafkaProducer as KafkaProducerClass
+            
+            producer = KafkaProducerClass(**kafka_config)
 
             # Parse the message payload
             if self.monitor.kafka_message_payload:
@@ -817,15 +835,15 @@ class KafkaChecker(MonitorChecker):
 
             # Send the message
             future = producer.send(self.monitor.kafka_topic, payload)
-            record_metadata = future.get(timeout=self.monitor.timeout)
+            record_metadata = future.get(timeout=self.monitor.timeout)  # type: ignore
 
             producer.close()
 
             return {
                 "success": True,
-                "topic": record_metadata.topic,
-                "partition": record_metadata.partition,
-                "offset": record_metadata.offset,
+                "topic": record_metadata.topic if record_metadata else None,  # type: ignore
+                "partition": record_metadata.partition if record_metadata else None,  # type: ignore
+                "offset": record_metadata.offset if record_metadata else None,  # type: ignore
             }
 
         except Exception as e:
