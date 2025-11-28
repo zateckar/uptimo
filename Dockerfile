@@ -1,5 +1,5 @@
-# syntax=docker/dockerfile:1
-FROM python:3.13-slim
+# Use a Python image with uv pre-installed
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 # Install system dependencies
 RUN apt-get update && \
@@ -9,28 +9,39 @@ RUN apt-get update && \
     curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Install UV
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-
+# Set working directory
 WORKDIR /app
 
-# Copy all project files
-COPY . .
+# Enable bytecode compilation
+ENV UV_COMPILE_BYTECODE=1
 
-# Install dependencies using uv sync (without --frozen for flexibility)
-RUN uv sync --no-dev
+# Copy from the cache instead of linking since it's a mounted volume
+ENV UV_LINK_MODE=copy
+
+# Install the project's dependencies using the lockfile and settings
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project --no-dev
+
+# Then, add the rest of the project source code and install it
+COPY . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev
 
 # Create non-root user and set ownership
 RUN useradd -m -u 1000 uptimo && \
     mkdir -p instance && \
     chown -R uptimo:uptimo /app
 
+# Place executables in the environment at the front of the path
+ENV PATH="/app/.venv/bin:$PATH"
+
 # Switch to non-root user
 USER uptimo
 
-# Set environment
-ENV PATH="/app/.venv/bin:$PATH" \
-    PYTHONUNBUFFERED=1 \
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
     FLASK_ENV=production \
     DATABASE_URL=sqlite:///instance/uptimo.db
 
