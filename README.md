@@ -2,8 +2,7 @@
 
 A self-hosted monitoring application for personal or small-team use. Monitor HTTP endpoints, Kafka brokers, TCP ports, and more with real-time dashboards, incident tracking, and flexible notification channels.
 
-<img width="2361" height="1386" alt="{8B93D352-237A-4106-8BE4-28A59C6A3D30}" src="https://github.com/user-attachments/assets/b465c5fc-eaa5-42d5-9732-3f2b995e0c65" />
-
+<img width="2367" height="1387" alt="{721962E7-80A9-4058-B470-C512CBF413C1}" src="https://github.com/user-attachments/assets/7ca55b68-75d5-4708-b711-91fe4d93eb06" />
 
 ## Features
 
