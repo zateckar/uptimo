@@ -14,18 +14,15 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
-
-# Install dependencies as root
-RUN uv sync --frozen --no-dev
-
-# Copy application code
+# Copy all project files
 COPY . .
+
+# Install dependencies using uv sync (without --frozen for flexibility)
+RUN uv sync --no-dev
 
 # Create non-root user and set ownership
 RUN useradd -m -u 1000 uptimo && \
-    mkdir -p /app/instance && \
+    mkdir -p instance && \
     chown -R uptimo:uptimo /app
 
 # Switch to non-root user
