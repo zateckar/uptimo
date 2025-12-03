@@ -209,10 +209,9 @@ const SSEManager = {
             Object.keys(data.monitors).forEach(monitorId => {
                 const monitorData = data.monitors[monitorId];
                 this.updateMonitorInList(monitorId, monitorData);
-                // Only update heartbeat if this monitor is NOT currently selected
-                // to prevent conflicts with the monitor-specific stream
-                if (monitorData.recent_checks &&
-                    Uptimo.state.selectedMonitorId !== parseInt(monitorId)) {
+                // Update heartbeat for all monitors (including selected one)
+                // This ensures the mini heartbeat visualization is always up-to-date
+                if (monitorData.recent_checks) {
                     // Convert columnar data to row-based format for compatibility
                     const checks = Utils.convertColumnarData(monitorData.recent_checks);
                     if (checks.length > 0) {

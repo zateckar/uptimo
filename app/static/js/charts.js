@@ -506,17 +506,15 @@ const ChartManager = {
         return buckets;
     },
     
-    // Assign checks to buckets with one-to-one mapping
+    // Aggregate checks into buckets for consistent visualization
     assignChecksToBuckets: function(sortedChecks, buckets) {
         let checkIndex = 0;
         
         for (let bucketIndex = 0; bucketIndex < buckets.length && checkIndex < sortedChecks.length; bucketIndex++) {
             const bucket = buckets[bucketIndex];
-            let bestCheck = null;
-            let bestDistance = Infinity;
-            let bestCheckIndex = -1;
+            const bucketChecks = [];
             
-            // Find the best check for this bucket
+            // Collect all checks that belong to this bucket
             for (let i = checkIndex; i < sortedChecks.length; i++) {
                 const check = sortedChecks[i];
                 const checkTime = new Date(check.timestamp);
@@ -527,27 +525,73 @@ const ChartManager = {
                 // Skip checks after this bucket - we'll use them for next buckets
                 if (checkTime >= bucket.end) break;
                 
-                // Calculate distance from bucket center
-                const bucketCenter = new Date(
-                    (bucket.start.getTime() + bucket.end.getTime()) / 2
-                );
-                const distance = Math.abs(checkTime - bucketCenter);
-                
-                // Track best match
-                if (distance < bestDistance) {
-                    bestDistance = distance;
-                    bestCheck = check;
-                    bestCheckIndex = i;
-                }
+                bucketChecks.push(check);
             }
             
-            // Assign best check to this bucket
-            if (bestCheck) {
-                bucket.assignedCheck = bestCheck;
-                // Move check index forward to avoid reusing the same check
-                checkIndex = bestCheckIndex + 1;
+            // Aggregate the checks for this bucket
+            if (bucketChecks.length > 0) {
+                bucket.assignedCheck = this.aggregateBucketChecks(bucketChecks);
+                // Move check index past all checks used for this bucket
+                checkIndex += bucketChecks.length;
             }
         }
+    },
+    
+    // Aggregate multiple checks into a single representative check
+    aggregateBucketChecks: function(checks) {
+        // Separate checks by status
+        const upChecks = checks.filter(c => c.status === 'up' && c.response_time !== null);
+        const downChecks = checks.filter(c => c.status === 'down');
+        const timeoutChecks = downChecks.filter(c => c.response_time === null);
+        
+        // Determine the dominant status (prioritize timeouts and downs)
+        let dominantStatus;
+        if (timeoutChecks.length > 0) {
+            dominantStatus = 'down'; // Timeout takes priority
+        } else if (downChecks.length > 0) {
+            dominantStatus = 'down';
+        } else if (upChecks.length > 0) {
+            dominantStatus = 'up';
+        } else {
+            dominantStatus = 'unknown';
+        }
+        
+        // Calculate response time based on status
+        let responseTime;
+        if (dominantStatus === 'down') {
+            // For downs, check if there are timeouts
+            if (timeoutChecks.length > 0) {
+                responseTime = 0; // Timeout represented as 0
+            } else {
+                // For non-timeout downs, use average of any available response times
+                const downWithTime = downChecks.filter(c => c.response_time !== null);
+                if (downWithTime.length > 0) {
+                    const sum = downWithTime.reduce((acc, c) => acc + c.response_time, 0);
+                    responseTime = sum / downWithTime.length;
+                } else {
+                    responseTime = 0; // No response times available
+                }
+            }
+        } else if (dominantStatus === 'up' && upChecks.length > 0) {
+            // For ups, use median for better representation of typical values
+            const times = upChecks.map(c => c.response_time).sort((a, b) => a - b);
+            const mid = Math.floor(times.length / 2);
+            responseTime = times.length % 2 === 0
+                ? (times[mid - 1] + times[mid]) / 2  // Even: average of middle two
+                : times[mid];  // Odd: middle value
+        } else {
+            responseTime = null;
+        }
+        
+        // Use the timestamp of the middle check for temporal representation
+        const middleIndex = Math.floor(checks.length / 2);
+        const representativeCheck = {
+            ...checks[middleIndex],
+            status: dominantStatus,
+            response_time: responseTime
+        };
+        
+        return representativeCheck;
     },
     
     // Convert buckets to chart data format
@@ -563,7 +607,12 @@ const ChartManager = {
             ));
             
             if (bucket.assignedCheck) {
-                values.push(bucket.assignedCheck.response_time);
+                // For timeout checks with null response_time, use 0 to ensure they appear in chart
+                // The status will still be "down" so it will be colored red
+                const responseTime = bucket.assignedCheck.response_time !== null
+                    ? bucket.assignedCheck.response_time
+                    : 0;
+                values.push(responseTime);
                 statuses.push(bucket.assignedCheck.status);
             } else {
                 values.push(null);
@@ -589,7 +638,8 @@ const ChartManager = {
             '30d': 720
         }[timespan];
         
-        const startTime = new Date(now.getTime() - timespanHours * 60 * 60 * 1000);
+        // Create fixed time boundaries that don't shift with each update
+        const { startTime, endTime } = this.createFixedTimeBoundaries(now, timespanHours);
         const timeIntervalMs = this.getOptimalTimeInterval(monitorIntervalMs, timespan);
         
         // Sort checks by timestamp to ensure ordered processing
@@ -597,8 +647,8 @@ const ChartManager = {
             new Date(a.timestamp) - new Date(b.timestamp)
         );
         
-        // Create time buckets
-        const buckets = this.createTimeBuckets(startTime, now, timeIntervalMs);
+        // Create time buckets with fixed boundaries
+        const buckets = this.createTimeBuckets(startTime, endTime, timeIntervalMs);
         
         // Assign checks to buckets - one check per bucket maximum
         this.assignChecksToBuckets(sortedChecks, buckets);
@@ -607,11 +657,43 @@ const ChartManager = {
         const result = this.bucketsToChartData(buckets, timespan);
         
         // Fallback: if no data was assigned, use simple direct mapping
+        // This is a safety net for edge cases where bucket assignment fails
         if (result.values.filter(v => v !== null).length === 0 && sortedChecks.length > 0) {
+            console.warn('Bucket assignment failed, using fallback direct mapping for chart data');
             return this.createSimpleChartData(sortedChecks, timespan);
         }
         
         return result;
+    },
+    
+    // Create fixed time boundaries that align to regular intervals
+    createFixedTimeBoundaries: function(now, timespanHours) {
+        const timespanMs = timespanHours * 60 * 60 * 1000;
+        
+        // For different timespans, align to different boundary intervals
+        let alignmentIntervalMs;
+        if (timespanHours <= 1) {
+            // For 1h, align to minute boundaries
+            alignmentIntervalMs = 60 * 1000;
+        } else if (timespanHours <= 6) {
+            // For 6h, align to 5-minute boundaries
+            alignmentIntervalMs = 5 * 60 * 1000;
+        } else if (timespanHours <= 24) {
+            // For 24h, align to 15-minute boundaries
+            alignmentIntervalMs = 15 * 60 * 1000;
+        } else if (timespanHours <= 168) {
+            // For 7d, align to hour boundaries
+            alignmentIntervalMs = 60 * 60 * 1000;
+        } else {
+            // For 30d, align to 4-hour boundaries
+            alignmentIntervalMs = 4 * 60 * 60 * 1000;
+        }
+        
+        // Calculate the end time aligned to the boundary
+        const endTime = new Date(Math.ceil(now.getTime() / alignmentIntervalMs) * alignmentIntervalMs);
+        const startTime = new Date(endTime.getTime() - timespanMs);
+        
+        return { startTime, endTime };
     },
     
     // Simple fallback: direct mapping of checks to chart data
@@ -632,7 +714,9 @@ const ChartManager = {
         
         sampledChecks.forEach(check => {
             labels.push(this.formatLabelForTimespan(check.timestamp, timespan));
-            values.push(check.response_time);
+            // For timeout checks with null response_time, use 0 to ensure they appear in chart
+            const responseTime = check.response_time !== null ? check.response_time : 0;
+            values.push(responseTime);
             statuses.push(check.status);
         });
         
