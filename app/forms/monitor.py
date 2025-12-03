@@ -330,9 +330,6 @@ class MonitorForm(FlaskForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Set default values
-        if not self.check_interval.data:
-            self.check_interval.data = CheckInterval.FIVE_MINUTES.value
 
     def get_status_codes_list(self):
         """Convert comma-separated status codes to list"""
@@ -356,6 +353,10 @@ class MonitorForm(FlaskForm):
     def validate_target(self, target):
         """Validate target based on monitor type"""
         monitor_type = self.type.data
+        # Ensure we have the monitor type as string, not enum
+        if hasattr(monitor_type, "value"):
+            monitor_type = monitor_type.value
+
         target_data = target.data
 
         if monitor_type in [MonitorType.HTTP.value, MonitorType.HTTPS.value]:
@@ -409,9 +410,14 @@ class MonitorForm(FlaskForm):
 
     def validate_port(self, port):
         """Validate port field for TCP monitors"""
-        if self.type.data == MonitorType.TCP.value and not port.data:
+        monitor_type = self.type.data
+        # Ensure we have the monitor type as string, not enum
+        if hasattr(monitor_type, "value"):
+            monitor_type = monitor_type.value
+
+        if monitor_type == MonitorType.TCP.value and not port.data:
             raise ValidationError("Port is required for TCP monitors")
-        elif self.type.data != MonitorType.TCP.value and port.data:
+        elif monitor_type != MonitorType.TCP.value and port.data:
             raise ValidationError("Port should only be specified for TCP monitors")
 
     def validate_json_path_match(self, json_path_match):
@@ -452,7 +458,11 @@ class MonitorForm(FlaskForm):
 
     def validate_expected_status_codes(self, expected_status_codes):
         """Validate expected status codes for HTTP monitors"""
+        # Ensure we have the monitor type as string, not enum
         monitor_type = self.type.data
+        if hasattr(monitor_type, "value"):
+            monitor_type = monitor_type.value
+
         if monitor_type in [MonitorType.HTTP.value, MonitorType.HTTPS.value]:
             if not expected_status_codes.data:
                 raise ValidationError(
@@ -468,7 +478,12 @@ class MonitorForm(FlaskForm):
 
     def validate_kafka_sasl_mechanism(self, kafka_sasl_mechanism):
         """Validate SASL mechanism consistency"""
-        if self.type.data == MonitorType.KAFKA.value:
+        monitor_type = self.type.data
+        # Ensure we have the monitor type as string, not enum
+        if hasattr(monitor_type, "value"):
+            monitor_type = monitor_type.value
+
+        if monitor_type == MonitorType.KAFKA.value:
             protocol = self.kafka_security_protocol.data
             if protocol in ["SASL_SSL", "SASL_PLAINTEXT"]:
                 if not kafka_sasl_mechanism.data:
@@ -478,7 +493,12 @@ class MonitorForm(FlaskForm):
 
     def validate_kafka_sasl_username(self, kafka_sasl_username):
         """Validate SASL username"""
-        if self.type.data == MonitorType.KAFKA.value:
+        monitor_type = self.type.data
+        # Ensure we have the monitor type as string, not enum
+        if hasattr(monitor_type, "value"):
+            monitor_type = monitor_type.value
+
+        if monitor_type == MonitorType.KAFKA.value:
             mechanism = self.kafka_sasl_mechanism.data
             if mechanism in ["PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"]:
                 if not kafka_sasl_username.data:
@@ -488,7 +508,12 @@ class MonitorForm(FlaskForm):
 
     def validate_kafka_sasl_password(self, kafka_sasl_password):
         """Validate SASL password"""
-        if self.type.data == MonitorType.KAFKA.value:
+        monitor_type = self.type.data
+        # Ensure we have the monitor type as string, not enum
+        if hasattr(monitor_type, "value"):
+            monitor_type = monitor_type.value
+
+        if monitor_type == MonitorType.KAFKA.value:
             mechanism = self.kafka_sasl_mechanism.data
             if mechanism in ["PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"]:
                 if not kafka_sasl_password.data:
@@ -498,21 +523,36 @@ class MonitorForm(FlaskForm):
 
     def validate_kafka_oauth_token_url(self, kafka_oauth_token_url):
         """Validate OAuth token URL"""
-        if self.type.data == MonitorType.KAFKA.value:
+        monitor_type = self.type.data
+        # Ensure we have the monitor type as string, not enum
+        if hasattr(monitor_type, "value"):
+            monitor_type = monitor_type.value
+
+        if monitor_type == MonitorType.KAFKA.value:
             if self.kafka_sasl_mechanism.data == "OAUTHBEARER":
                 if not kafka_oauth_token_url.data:
                     raise ValidationError("OAuth token URL is required for OAUTHBEARER")
 
     def validate_kafka_oauth_client_id(self, kafka_oauth_client_id):
         """Validate OAuth client ID"""
-        if self.type.data == MonitorType.KAFKA.value:
+        monitor_type = self.type.data
+        # Ensure we have the monitor type as string, not enum
+        if hasattr(monitor_type, "value"):
+            monitor_type = monitor_type.value
+
+        if monitor_type == MonitorType.KAFKA.value:
             if self.kafka_sasl_mechanism.data == "OAUTHBEARER":
                 if not kafka_oauth_client_id.data:
                     raise ValidationError("OAuth client ID is required for OAUTHBEARER")
 
     def validate_kafka_oauth_client_secret(self, kafka_oauth_client_secret):
         """Validate OAuth client secret"""
-        if self.type.data == MonitorType.KAFKA.value:
+        monitor_type = self.type.data
+        # Ensure we have the monitor type as string, not enum
+        if hasattr(monitor_type, "value"):
+            monitor_type = monitor_type.value
+
+        if monitor_type == MonitorType.KAFKA.value:
             if self.kafka_sasl_mechanism.data == "OAUTHBEARER":
                 if not kafka_oauth_client_secret.data:
                     raise ValidationError(
@@ -521,7 +561,12 @@ class MonitorForm(FlaskForm):
 
     def validate_kafka_ssl_client_cert(self, kafka_ssl_client_cert):
         """Validate SSL client certificate for mTLS"""
-        if self.type.data == MonitorType.KAFKA.value:
+        monitor_type = self.type.data
+        # Ensure we have the monitor type as string, not enum
+        if hasattr(monitor_type, "value"):
+            monitor_type = monitor_type.value
+
+        if monitor_type == MonitorType.KAFKA.value:
             if kafka_ssl_client_cert.data and not self.kafka_ssl_client_key.data:
                 raise ValidationError(
                     "SSL client key is required with client certificate"
@@ -529,7 +574,12 @@ class MonitorForm(FlaskForm):
 
     def validate_kafka_topic(self, kafka_topic):
         """Validate Kafka topic for read/write operations"""
-        if self.type.data == MonitorType.KAFKA.value:
+        monitor_type = self.type.data
+        # Ensure we have the monitor type as string, not enum
+        if hasattr(monitor_type, "value"):
+            monitor_type = monitor_type.value
+
+        if monitor_type == MonitorType.KAFKA.value:
             if self.kafka_read_message.data or self.kafka_write_message.data:
                 if not kafka_topic.data:
                     raise ValidationError(
@@ -538,7 +588,12 @@ class MonitorForm(FlaskForm):
 
     def validate_kafka_message_payload(self, kafka_message_payload):
         """Validate Kafka message payload"""
-        if self.type.data == MonitorType.KAFKA.value:
+        monitor_type = self.type.data
+        # Ensure we have the monitor type as string, not enum
+        if hasattr(monitor_type, "value"):
+            monitor_type = monitor_type.value
+
+        if monitor_type == MonitorType.KAFKA.value:
             if self.kafka_write_message.data:
                 if not kafka_message_payload.data:
                     raise ValidationError(
@@ -555,20 +610,66 @@ class MonitorForm(FlaskForm):
 class MonitorEditForm(MonitorForm):
     """Form for editing existing monitors"""
 
+    def process(self, formdata=None, obj=None, data=None, **kwargs):
+        """Process form data, handling enum-to-string conversion for monitor type"""
+        # Call parent process first
+        super().process(formdata, obj, data, **kwargs)
+
+        # Convert monitor type enum to string if present
+        if self.type.data and hasattr(self.type.data, "value"):
+            self.type.data = self.type.data.value
+
+    def validate(self, extra_validators=None):
+        """Override validate to ensure enum-to-string conversion before validation"""
+        # Convert monitor type enum to string if present
+        if self.type.data and hasattr(self.type.data, "value"):
+            self.type.data = self.type.data.value
+
+        # Call parent validation
+        return super().validate(extra_validators)
+
     submit = SubmitField("Update Monitor")
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        # Force type conversion before calling parent init
+        obj = kwargs.get("obj")
+        if obj and hasattr(obj, "type") and isinstance(obj.type, MonitorType):
+            # Temporarily store the string value for parent init
+            kwargs["type"] = obj.type.value
 
-        # Convert type enum to its string value
+        super(MonitorEditForm, self).__init__(*args, **kwargs)
+
+        # Handle enum conversion from obj parameter (during GET request for edit form)
+        if "obj" in kwargs and hasattr(kwargs["obj"], "check_interval"):
+            obj_check_interval = kwargs["obj"].check_interval
+            if isinstance(obj_check_interval, CheckInterval):
+                self.check_interval.data = obj_check_interval.value
+
+        # Convert type enum to its string value (this should handle all cases)
         if self.type.data and isinstance(self.type.data, MonitorType):
             self.type.data = self.type.data.value
+        elif obj and hasattr(obj, "type") and isinstance(obj.type, MonitorType):
+            # Ensure type is properly set from obj
+            self.type.data = obj.type.value
 
-        # Convert check_interval enum to its integer value
-        if self.check_interval.data and isinstance(
+        # Convert check_interval enum to its integer value (for form submissions)
+        elif self.check_interval.data and isinstance(
             self.check_interval.data, CheckInterval
         ):
             self.check_interval.data = self.check_interval.data.value
+
+        # Handle POST request: ensure check_interval data is properly processed
+        # This fixes the issue where form.check_interval.raw_data contains the new value
+        # but form.check_interval.data retains the old value
+        if hasattr(self, "check_interval") and hasattr(self.check_interval, "raw_data"):
+            if self.check_interval.raw_data and len(self.check_interval.raw_data) > 0:
+                try:
+                    # Convert the raw form data to int and set as data
+                    new_value = int(self.check_interval.raw_data[0])
+                    self.check_interval.data = new_value
+                except (ValueError, TypeError):
+                    # If conversion fails, leave the existing data
+                    pass
 
         # Convert stored expected_status_codes back to comma-separated format
         if self.expected_status_codes.data:

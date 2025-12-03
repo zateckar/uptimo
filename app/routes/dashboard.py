@@ -12,18 +12,18 @@ from flask import (
     flash,
     Response,
     request,
-    current_app,
 )
 from flask_login import login_required, current_user
 
 from app import db
 from app.models.monitor import Monitor, MonitorType, CheckInterval
-from app.models.check_result import CheckResult
 from app.models.incident import Incident
 from app.models.notification import NotificationChannel
+from app.models.check_result import CheckResult
 from app.forms.monitor import MonitorForm, MonitorEditForm
 from app.forms.monitor_notification import MonitorNotificationForm
 from app.schedulers.monitor_scheduler import monitor_scheduler
+from app.utils.cache import api_cache
 
 bp = Blueprint("dashboard", __name__)
 
@@ -93,53 +93,89 @@ def monitors():
 
 @bp.route("/monitor/<int:id>")
 @login_required
+@api_cache(max_age=600)  # Cache for 10 minutes - static/semi-static data
 def monitor_detail(id: int):
-    """AJAX endpoint for monitor detail view."""
+    """AJAX endpoint for monitor detail view.
+
+    Optimized endpoint that returns only static and semi-static data.
+    Dynamic check data (recent_checks, heartbeat_checks) should be fetched
+    from dedicated endpoints: /monitor/{id}/checks and /monitor/{id}/heartbeat.
+    """
+    from app.models.deduplication import DomainInfo, TLSCertificate
+    from urllib.parse import urlparse
+
     monitor = Monitor.query.filter_by(id=id, user_id=current_user.id).first_or_404()
 
-    # Get timespan parameter (default to 24h)
-    timespan = request.args.get("timespan", "24h")
-
-    # Convert timespan to hours
-    timespan_hours = {
-        "1h": 1,
-        "6h": 6,
-        "24h": 24,
-        "7d": 24 * 7,
-        "30d": 24 * 30,
-    }.get(timespan, 24)
-
-    # Get recent checks based on timespan for the chart
-    recent_checks = monitor.get_checks_by_timespan(timespan_hours)
-
-    # Get recent checks for heartbeat (last 50)
-    heartbeat_checks = monitor.get_recent_checks(50)
-
-    # Get incidents
+    # Get incidents (semi-static - doesn't change frequently)
     incidents = monitor.incidents.order_by(Incident.started_at.desc()).limit(10).all()
 
-    # Get latest check with additional data for SSL/Domain info
-    # This ensures we have the info even if it's not in the recent_checks list (e.g. due to timespan)
-    latest_check_with_data = (
-        CheckResult.query.filter_by(monitor_id=id)
-        .filter(CheckResult.additional_data.isnot(None))
-        .order_by(CheckResult.timestamp.desc())
-        .first()
-    )
+    # Fetch TLS/domain data directly from deduplication tables (updated daily)
+    cert_info = None
+    domain_check = None
 
-    ssl_info = None
-    domain_info = None
-    dns_info = None
+    # Extract domain from target based on monitor type
+    domain = monitor.target
+    if monitor.type.value in ["http", "https"]:
+        # Extract domain from URL
+        parsed = urlparse(monitor.target)
+        domain = parsed.hostname or monitor.target
+    elif ":" in monitor.target:
+        # Strip port from domain/IP
+        domain = monitor.target.split(":")[0]
 
-    if latest_check_with_data:
-        data = latest_check_with_data.get_additional_data()
-        ssl_info = data.get("ssl_info")
-        domain_info = data.get("domain_info")
-        dns_info = data.get("dns_info")
+    # Fetch TLS certificate data if available (show even if monitoring disabled)
+    if domain:
+        tls_cert = TLSCertificate.query.filter_by(domain=domain).first()
+        if tls_cert:
+            cert_info = tls_cert.get_cert_data()
 
-    # Render action buttons HTML
+    # Fetch domain info if domain checking is enabled
+    if monitor.check_domain and domain and not monitor.domain_check_failed:
+        domain_info = DomainInfo.query.filter_by(domain=domain).first()
+        if domain_info:
+            domain_check = domain_info.get_dns_info()
+
+    # Render action buttons HTML (static - only changes when monitor settings change)
     action_buttons_html = render_template(
         "dashboard/_monitor_actions.html", monitor=monitor
+    )
+
+    # Render TLS/DNS/Domain HTML server-side (static - only changes when cert/domain data updates)
+    tls_html = render_template(
+        "dashboard/_tls_dns_render.html",
+        cert_info=cert_info,
+        monitor=monitor,
+        render_type="tls",
+    )
+    tls_summary_html = render_template(
+        "dashboard/_tls_dns_render.html",
+        cert_info=cert_info,
+        monitor=monitor,
+        render_type="tls_summary",
+    )
+    domain_html = render_template(
+        "dashboard/_tls_dns_render.html",
+        domain_check=domain_check,
+        monitor=monitor,
+        render_type="domain",
+    )
+    domain_summary_html = render_template(
+        "dashboard/_tls_dns_render.html",
+        domain_check=domain_check,
+        monitor=monitor,
+        render_type="domain_summary",
+    )
+    dns_html = render_template(
+        "dashboard/_tls_dns_render.html",
+        domain_check=domain_check,
+        monitor=monitor,
+        render_type="dns",
+    )
+    dns_summary_html = render_template(
+        "dashboard/_tls_dns_render.html",
+        domain_check=domain_check,
+        monitor=monitor,
+        render_type="dns_summary",
     )
 
     return jsonify(
@@ -147,13 +183,18 @@ def monitor_detail(id: int):
             "monitor": monitor.to_dict(
                 include_recent_checks=False, include_incidents=True
             ),
-            "recent_checks": [check.to_dict() for check in recent_checks],
-            "heartbeat_checks": [check.to_dict() for check in heartbeat_checks],
+            # Removed: recent_checks - use /monitor/{id}/checks endpoint
+            # Removed: heartbeat_checks - use /monitor/{id}/heartbeat endpoint
             "incidents": [incident.to_dict() for incident in incidents],
-            "ssl_info": ssl_info,
-            "domain_info": domain_info,
-            "dns_info": dns_info,
+            "cert_info": cert_info,
+            "domain_check": domain_check,
             "action_buttons_html": action_buttons_html,
+            "tls_html": tls_html,
+            "tls_summary_html": tls_summary_html,
+            "domain_html": domain_html,
+            "domain_summary_html": domain_summary_html,
+            "dns_html": dns_html,
+            "dns_summary_html": dns_summary_html,
         }
     )
 
@@ -161,20 +202,27 @@ def monitor_detail(id: int):
 @bp.route("/monitor/<int:id>/heartbeat")
 @login_required
 def monitor_heartbeat(id: int):
-    """Get heartbeat data for a specific monitor."""
+    """Get heartbeat data for a specific monitor using optimized columnar format."""
     monitor = Monitor.query.filter_by(id=id, user_id=current_user.id).first_or_404()
 
     # Get recent checks for heartbeat (last 50)
     recent_checks = monitor.get_recent_checks(50)
 
-    return jsonify({"checks": [check.to_dict() for check in recent_checks]})
+    # Use columnar format for better compression
+    return jsonify({"checks": CheckResult.to_columnar_dict(recent_checks)})
 
 
 @bp.route("/monitor/<int:id>/checks")
 @login_required
+@api_cache(max_age=60)  # Cache for 1 minute
 def monitor_checks(id: int):
-    """Get check data for a specific monitor with timespan filtering."""
-    monitor = Monitor.query.filter_by(id=id, user_id=current_user.id).first_or_404()
+    """Get check data for a specific monitor with timespan filtering.
+
+    Optimized endpoint that returns only essential fields for chart rendering.
+    Uses selective field loading and columnar format for better compression.
+    """
+
+    Monitor.query.filter_by(id=id, user_id=current_user.id).first_or_404()
 
     # Get timespan parameter (default to 24h)
     timespan = request.args.get("timespan", "24h")
@@ -188,14 +236,33 @@ def monitor_checks(id: int):
         "30d": 24 * 30,
     }.get(timespan, 24)
 
-    # Get recent checks based on timespan
-    filtered_checks = monitor.get_checks_by_timespan(timespan_hours)
+    # Calculate start time for filtering
+    start_time = datetime.now(timezone.utc) - timedelta(hours=timespan_hours)
 
-    return jsonify({"checks": [check.to_dict() for check in filtered_checks]})
+    # Calculate intelligent limit based on minimum check interval (30 seconds)
+    minimum_interval = 30  # seconds - fastest possible check interval
+    max_theoretical_checks = (timespan_hours * 3600) // minimum_interval
+    intelligent_limit = min(max_theoretical_checks, 2000)
+
+    # Fetch full CheckResult objects for columnar serialization
+    # This allows us to use the optimized columnar format
+    checks_query = (
+        CheckResult.query.filter_by(monitor_id=id)
+        .filter(CheckResult.timestamp >= start_time)
+        .order_by(CheckResult.timestamp.desc())
+        .limit(intelligent_limit)
+    )
+
+    # Execute query and get results
+    checks = checks_query.all()
+
+    # Use columnar format for better compression
+    return jsonify({"checks": CheckResult.to_columnar_dict(checks)})
 
 
 @bp.route("/overview-stats")
 @login_required
+@api_cache(max_age=60)  # Cache for 1 minute
 def overview_stats():
     """AJAX endpoint for dashboard overview statistics."""
     monitors = Monitor.query.filter_by(user_id=current_user.id, is_active=True).all()
@@ -548,6 +615,9 @@ def edit(id: int):
     # Handle monitor form submission
     if form.validate_on_submit() and request.form.get("form_type") != "notifications":
         try:
+            # Track if monitor was inactive before update
+            was_inactive = not monitor.is_active
+
             # Update monitor with form data
             monitor.name = form.name.data or ""
             monitor.type = MonitorType(form.type.data)
@@ -588,6 +658,12 @@ def edit(id: int):
             monitor.kafka_message_payload = form.kafka_message_payload.data
             monitor.kafka_autocommit = form.kafka_autocommit.data
             monitor.is_active = form.is_active.data
+
+            # Reset TLS/DNS/domain timestamps when resuming a paused monitor
+            if was_inactive and monitor.is_active:
+                monitor.last_tls_check = None
+                monitor.last_domain_check = None
+                monitor.domain_check_failed = False
 
             db.session.commit()
 
@@ -715,7 +791,15 @@ def clone(id: int):
 def toggle(id: int):
     """Toggle monitor active status."""
     monitor = Monitor.query.filter_by(id=id, user_id=current_user.id).first_or_404()
+    was_inactive = not monitor.is_active
     monitor.is_active = not monitor.is_active
+
+    # Reset TLS/DNS/domain timestamps when resuming a paused monitor
+    if was_inactive and monitor.is_active:
+        monitor.last_tls_check = None
+        monitor.last_domain_check = None
+        monitor.domain_check_failed = False
+
     db.session.commit()
 
     # Schedule or unschedule based on new status
@@ -754,6 +838,7 @@ def stream():
     # to ensure they're available in the separate thread context
     user_id = current_user.id
     from flask import current_app as app_context
+
     app = app_context._get_current_object()  # type: ignore
 
     def generate():
@@ -785,15 +870,10 @@ def stream():
                 for monitor in monitors:
                     monitor_data = monitor.to_dict(include_recent_checks=False)
                     # Always include recent_checks for heartbeat visualization
-                    # Get actual recent checks - don't create fake data
-                    recent_checks = [
-                        {
-                            "timestamp": check.timestamp.isoformat(),
-                            "status": check.status,
-                            "response_time": check.response_time,
-                        }
-                        for check in monitor.get_recent_checks(25)
-                    ]
+                    # Use columnar format for better compression
+                    recent_checks = CheckResult.to_columnar_dict(
+                        monitor.get_recent_checks(25)
+                    )
                     monitor_data["recent_checks"] = recent_checks
 
                     meaningful_state["monitors"][str(monitor.id)] = monitor_data
@@ -846,15 +926,10 @@ def stream():
                         for monitor in monitors:
                             monitor_data = monitor.to_dict(include_recent_checks=False)
                             # Always include recent_checks for heartbeat visualization
-                            # Get actual recent checks - don't create fake data
-                            recent_checks = [
-                                {
-                                    "timestamp": check.timestamp.isoformat(),
-                                    "status": check.status,
-                                    "response_time": check.response_time,
-                                }
-                                for check in monitor.get_recent_checks(25)
-                            ]
+                            # Use columnar format for better compression
+                            recent_checks = CheckResult.to_columnar_dict(
+                                monitor.get_recent_checks(25)
+                            )
                             monitor_data["recent_checks"] = recent_checks
                             meaningful_state["monitors"][str(monitor.id)] = monitor_data
 
@@ -901,14 +976,14 @@ def stream():
                     break
                 except Exception as e:
                     # Log error and continue
-                    print(f"SSE Error: {e}")
+                    app.logger.warning(f"SSE Error: {e}")
                     yield f"data: {json.dumps({'error': 'SSE stream error'})}\n\n"
                     time.sleep(10)  # Wait longer on error
 
         except GeneratorExit:
-            print(f"SSE: Client {user_id} disconnected")
+            app.logger.info(f"SSE: Client {user_id} disconnected")
         except Exception as e:
-            print(f"SSE Error for user {user_id}: {e}")
+            app.logger.error(f"SSE Error for user {user_id}: {e}")
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return Response(
@@ -934,6 +1009,7 @@ def monitor_stream(id: int):
     user_id = current_user.id
     monitor_id = id
     from flask import current_app as app_context
+
     app = app_context._get_current_object()  # type: ignore
 
     # Get timespan parameter (default to 24h)
@@ -981,24 +1057,6 @@ def monitor_stream(id: int):
                     # Get recent checks and filter by timespan for charts
                     filtered_checks = monitor.get_checks_by_timespan(timespan_hours)
 
-                    # Get latest check with additional data for SSL/Domain info
-                    latest_check_with_data = (
-                        CheckResult.query.filter_by(monitor_id=monitor_id)
-                        .filter(CheckResult.additional_data.isnot(None))
-                        .order_by(CheckResult.timestamp.desc())
-                        .first()
-                    )
-
-                    ssl_info = None
-                    domain_info = None
-                    dns_info = None
-
-                    if latest_check_with_data:
-                        data = latest_check_with_data.get_additional_data()
-                        ssl_info = data.get("ssl_info")
-                        domain_info = data.get("domain_info")
-                        dns_info = data.get("dns_info")
-
                     # Get incidents
                     incidents = (
                         monitor.incidents.order_by(Incident.started_at.desc())
@@ -1006,35 +1064,27 @@ def monitor_stream(id: int):
                         .all()
                     )
 
+                    # Use columnar format for better compression
+                    recent_checks_columnar = CheckResult.to_columnar_dict(
+                        recent_checks_heartbeat
+                    )
+                    filtered_checks_columnar = CheckResult.to_columnar_dict(
+                        filtered_checks
+                    )
+
                     # Create stable hash for heartbeat data to detect meaningful changes
-                    heartbeat_data = [
-                        {
-                            "timestamp": check.timestamp.isoformat(),
-                            "status": check.status,
-                            "response_time": check.response_time,
-                        }
-                        for check in recent_checks_heartbeat
-                    ]
                     current_heartbeat_hash = str(
-                        hash(json.dumps(heartbeat_data, sort_keys=True))
+                        hash(json.dumps(recent_checks_columnar, sort_keys=True))
                     )
 
                     # Create meaningful state (excluding volatile timestamps)
+                    # Note: TLS/domain data is NOT included in SSE stream
+                    # as it only updates once per day and is fetched via monitor_detail endpoint
                     meaningful_state: Dict[str, Any] = {
                         "monitor": monitor.to_dict(include_recent_checks=False),
-                        "recent_checks": [
-                            {
-                                "timestamp": check.timestamp.isoformat(),
-                                "status": check.status,
-                                "response_time": check.response_time,
-                            }
-                            for check in filtered_checks
-                        ],
-                        "heartbeat_checks": heartbeat_data,
+                        "recent_checks": filtered_checks_columnar,
+                        "heartbeat_checks": recent_checks_columnar,
                         "incidents": [incident.to_dict() for incident in incidents],
-                        "ssl_info": ssl_info,
-                        "domain_info": domain_info,
-                        "dns_info": dns_info,
                     }
 
                     # Create full response with current timestamp
@@ -1069,24 +1119,6 @@ def monitor_stream(id: int):
                         # Get recent checks and filter by timespan for charts
                         filtered_checks = monitor.get_checks_by_timespan(timespan_hours)
 
-                        # Get latest check with additional data for SSL/Domain info
-                        latest_check_with_data = (
-                            CheckResult.query.filter_by(monitor_id=monitor_id)
-                            .filter(CheckResult.additional_data.isnot(None))
-                            .order_by(CheckResult.timestamp.desc())
-                            .first()
-                        )
-
-                        ssl_info = None
-                        domain_info = None
-                        dns_info = None
-
-                        if latest_check_with_data:
-                            data = latest_check_with_data.get_additional_data()
-                            ssl_info = data.get("ssl_info")
-                            domain_info = data.get("domain_info")
-                            dns_info = data.get("dns_info")
-
                         # Get incidents
                         incidents = (
                             monitor.incidents.order_by(Incident.started_at.desc())
@@ -1094,35 +1126,27 @@ def monitor_stream(id: int):
                             .all()
                         )
 
+                        # Use columnar format for better compression
+                        recent_checks_columnar = CheckResult.to_columnar_dict(
+                            recent_checks_heartbeat
+                        )
+                        filtered_checks_columnar = CheckResult.to_columnar_dict(
+                            filtered_checks
+                        )
+
                         # Create stable hash for heartbeat data to detect meaningful changes
-                        heartbeat_data = [
-                            {
-                                "timestamp": check.timestamp.isoformat(),
-                                "status": check.status,
-                                "response_time": check.response_time,
-                            }
-                            for check in recent_checks_heartbeat
-                        ]
                         current_heartbeat_hash = str(
-                            hash(json.dumps(heartbeat_data, sort_keys=True))
+                            hash(json.dumps(recent_checks_columnar, sort_keys=True))
                         )
 
                         # Create meaningful state (excluding volatile timestamps)
+                        # Note: TLS/domain data is NOT included in SSE stream
+                        # as it only updates once per day and is fetched via monitor_detail endpoint
                         meaningful_state: Dict[str, Any] = {
                             "monitor": monitor.to_dict(include_recent_checks=False),
-                            "recent_checks": [
-                                {
-                                    "timestamp": check.timestamp.isoformat(),
-                                    "status": check.status,
-                                    "response_time": check.response_time,
-                                }
-                                for check in filtered_checks
-                            ],
-                            "heartbeat_checks": heartbeat_data,
+                            "recent_checks": filtered_checks_columnar,
+                            "heartbeat_checks": recent_checks_columnar,
                             "incidents": [incident.to_dict() for incident in incidents],
-                            "ssl_info": ssl_info,
-                            "domain_info": domain_info,
-                            "dns_info": dns_info,
                         }
 
                         # Only send update if meaningful state has changed
@@ -1156,24 +1180,26 @@ def monitor_stream(id: int):
 
                 except GeneratorExit:
                     # Client disconnected
-                    print(
+                    app.logger.info(
                         f"SSE Monitor: Client {user_id} disconnected cleanly from monitor {monitor_id}"
                     )
                     break
                 except Exception as e:
                     # Log error and continue
-                    print(
+                    app.logger.warning(
                         f"SSE Monitor Error for user {user_id}, monitor {monitor_id}: {e}"
                     )
                     yield f"data: {json.dumps({'error': 'Monitor stream error', 'timestamp': datetime.now(timezone.utc).isoformat()})}\n\n"
                     time.sleep(10)  # Wait longer on error
 
         except GeneratorExit:
-            print(
+            app.logger.info(
                 f"SSE Monitor: Client {user_id} disconnected from monitor {monitor_id}"
             )
         except Exception as e:
-            print(f"SSE Monitor Error for user {user_id}, monitor {monitor_id}: {e}")
+            app.logger.error(
+                f"SSE Monitor Error for user {user_id}, monitor {monitor_id}: {e}"
+            )
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return Response(

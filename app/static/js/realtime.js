@@ -212,9 +212,12 @@ const SSEManager = {
                 // Only update heartbeat if this monitor is NOT currently selected
                 // to prevent conflicts with the monitor-specific stream
                 if (monitorData.recent_checks &&
-                    monitorData.recent_checks.length > 0 &&
                     Uptimo.state.selectedMonitorId !== parseInt(monitorId)) {
-                    this.updateMonitorHeartbeat(monitorId, monitorData.recent_checks);
+                    // Convert columnar data to row-based format for compatibility
+                    const checks = Utils.convertColumnarData(monitorData.recent_checks);
+                    if (checks.length > 0) {
+                        this.updateMonitorHeartbeat(monitorId, checks);
+                    }
                 }
             });
             
@@ -228,26 +231,89 @@ const SSEManager = {
         if (data.monitor) {
             // Update detail view if this monitor is selected
             if (Uptimo.state.selectedMonitorId === data.monitor.id) {
-                // Create a safe data object with default empty arrays
-                // Include ssl_info, domain_info, dns_info if available
-                const safeData = {
-                    monitor: data.monitor,
-                    recent_checks: data.recent_checks || [],
-                    heartbeat_checks: data.heartbeat_checks || data.recent_checks || [],
-                    incidents: data.incidents || [],
-                    ssl_info: data.ssl_info || null,
-                    domain_info: data.domain_info || null,
-                    dns_info: data.dns_info || null
-                };
-                MonitorManager.displayDetails(safeData);
+                // Update only dynamic data - static data (TLS/domain/incidents)
+                // is loaded once from the main endpoint and cached
+                this.updateDynamicData(data);
             }
             
             // Update heartbeat in sidebar - use heartbeat_checks if available, otherwise recent_checks
             const heartbeatData = data.heartbeat_checks || data.recent_checks;
             if (heartbeatData) {
-                HeartbeatManager.updateSidebarHeartbeat(data.monitor.id, heartbeatData);
+                // Convert columnar data to row-based format for compatibility
+                const checks = Utils.convertColumnarData(heartbeatData);
+                HeartbeatManager.updateSidebarHeartbeat(data.monitor.id, checks);
             }
         }
+    },
+    
+    // Update only dynamic data in detail view (chart, heartbeat)
+    updateDynamicData: function(data) {
+        // Update chart with new check data if provided
+        if (data.recent_checks) {
+            // Convert columnar data to row-based format for compatibility
+            const checks = Utils.convertColumnarData(data.recent_checks);
+            if (checks.length > 0) {
+                ChartManager.updateResponseTimeChart(
+                    checks,
+                    Uptimo.state.currentTimespan || '24h'
+                );
+            }
+        }
+        
+        // Update heartbeat with new data
+        const heartbeatData = data.heartbeat_checks || data.recent_checks;
+        if (heartbeatData) {
+            // Convert columnar data to row-based format for compatibility
+            const checks = Utils.convertColumnarData(heartbeatData);
+            if (checks.length > 0) {
+                HeartbeatManager.updateDetailHeartbeat(checks);
+            }
+        }
+        
+        // Update monitor basic info (status, response time, uptime)
+        if (data.monitor) {
+            this.updateMonitorInfo(data.monitor);
+        }
+        
+        // Update incidents if provided (less frequent changes)
+        if (data.incidents) {
+            MonitorManager.updateIncidents(data.incidents);
+        }
+    },
+    
+    // Update monitor basic information
+    updateMonitorInfo: function(monitor) {
+        // Update status badge
+        const statusEl = document.getElementById('monitorStatus');
+        if (statusEl) {
+            statusEl.textContent = monitor.last_status.toUpperCase();
+            statusEl.className = 'badge fs-6 ' + Utils.getStatusBadgeClass(monitor.last_status);
+        }
+        
+        // Update last check time
+        if (monitor.last_check) {
+            const lastCheckEl = document.getElementById('lastCheckTime');
+            if (lastCheckEl) {
+                lastCheckEl.textContent = `Last check: ${Utils.formatDateTime(monitor.last_check)}`;
+            }
+        }
+        
+        // Update response time
+        if (monitor.last_response_time) {
+            const responseTimeEl = document.getElementById('currentResponseTime');
+            if (responseTimeEl) {
+                responseTimeEl.textContent = Utils.formatResponseTime(monitor.last_response_time);
+            }
+        }
+        
+        // Update uptime percentages
+        ['24h', '7d', '30d'].forEach(period => {
+            const uptimeKey = `uptime_${period}`;
+            const uptimeEl = document.getElementById(`uptime${period.replace('d', '')}`);
+            if (uptimeEl && monitor[uptimeKey] !== undefined) {
+                uptimeEl.textContent = `${monitor[uptimeKey]}%`;
+            }
+        });
     },
     
     // Update global statistics

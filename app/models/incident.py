@@ -58,8 +58,15 @@ class Incident(db.Model):
 
     # Indexes for performance
     __table_args__ = (
+        # Existing indexes
         db.Index("idx_incident_monitor_started", "monitor_id", "started_at"),
         db.Index("idx_incident_status_started", "status", "started_at"),
+        # Enhanced composite indexes for dashboard performance
+        db.Index(
+            "idx_incident_monitor_status_started", "monitor_id", "status", "started_at"
+        ),
+        db.Index("idx_incident_active_started", "status", "started_at"),
+        db.Index("idx_incident_resolved_started", "resolved_at", "started_at"),
     )
 
     def __init__(

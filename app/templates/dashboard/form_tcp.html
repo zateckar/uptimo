@@ -132,9 +132,6 @@
                                 {{ form.submit(class="btn btn-primary px-4", value="Update Monitor") }}
                             </div>
                         </div>
-                        
-                        <form id="deleteForm" method="POST" action="{{ url_for('dashboard.delete', id=monitor.id) }}" class="d-none"></form>
-                        <form id="cloneForm" method="POST" action="{{ url_for('dashboard.clone', id=monitor.id) }}" class="d-none"></form>
                         {% else %}
                         <!-- Create Form Actions -->
                         <div class="d-flex justify-content-end gap-2 pt-3 border-top">
@@ -143,6 +140,16 @@
                         </div>
                         {% endif %}
                     </form>
+                    
+                    {% if monitor %}
+                    <!-- Delete and Clone Forms (outside main form to avoid nesting) -->
+                    <form id="deleteForm" method="POST" action="{{ url_for('dashboard.delete', id=monitor.id) }}" class="d-none">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    </form>
+                    <form id="cloneForm" method="POST" action="{{ url_for('dashboard.clone', id=monitor.id) }}" class="d-none">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    </form>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -151,5 +158,6 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/feedback.js') }}"></script>
 <script src="{{ url_for('static', filename='js/form-handler.js') }}"></script>
 {% endblock %}

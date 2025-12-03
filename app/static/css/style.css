@@ -8,18 +8,18 @@
    ============================================================================ */
 
 :root {
-    /* Brand Colors - Refined Blue */
-    --brand-primary: #2563eb;       /* Blue 600 */
-    --brand-primary-hover: #1d4ed8; /* Blue 700 */
-    --brand-primary-subtle: #eff6ff; /* Blue 50 */
+    /* Brand Colors - Updated to match guidelines */
+    --brand-primary: #59bc87;          /* Primary green from spec */
+    --brand-primary-hover: #45a676;    /* Darker variant for hover */
+    --brand-primary-subtle: rgba(168, 255, 204, 0.15); /* Secondary color spec */
     
-    /* Status Colors - Light Mode */
-    --status-success: #10b981;      /* Emerald 500 */
-    --status-success-bg: #ecfdf5;   /* Emerald 50 */
-    --status-danger: #ef4444;       /* Red 500 */
-    --status-danger-bg: #fef2f2;    /* Red 50 */
-    --status-warning: #f59e0b;      /* Amber 500 */
-    --status-warning-bg: #fffbeb;   /* Amber 50 */
+    /* Status Colors - Light Mode - Enhanced Contrast */
+    --status-success: #22c55e;      /* Higher contrast green */
+    --status-success-bg: #f0fdf4;   /* Lighter background */
+    --status-danger: #dc2626;       /* Higher contrast red */
+    --status-danger-bg: #fef2f2;    /* Enhanced background */
+    --status-warning: #f59e0b;      /* Enhanced amber */
+    --status-warning-bg: #fffbeb;   /* Enhanced background */
     --status-info: #06b6d4;         /* Cyan 500 */
     --status-info-bg: #ecfeff;      /* Cyan 50 */
     --status-unknown: #6b7280;      /* Gray 500 */
@@ -82,10 +82,10 @@
     --brand-primary-subtle: rgba(59, 130, 246, 0.1);
     
     /* Status Colors - Dark Mode (Adjusted for contrast) */
-    --status-success: #34d399;      /* Emerald 400 */
-    --status-success-bg: rgba(16, 185, 129, 0.15);
+    --status-success: #4ade80;      /* Brighter green for dark mode */
+    --status-success-bg: rgba(34, 197, 94, 0.15);
     --status-danger: #f87171;       /* Red 400 */
-    --status-danger-bg: rgba(239, 68, 68, 0.15);
+    --status-danger-bg: rgba(220, 38, 38, 0.15);
     --status-warning: #fbbf24;      /* Amber 400 */
     --status-warning-bg: rgba(245, 158, 11, 0.15);
     --status-info: #22d3ee;         /* Cyan 400 */
@@ -511,48 +511,76 @@ code, pre {
    ============================================================================ */
 
 .badge {
-    padding: 0.35em 0.65em;
+    padding: 0.4em 0.7em; /* Increased padding */
     font-size: 0.75em;
-    font-weight: 600;
+    font-weight: 700; /* Enhanced weight for better visibility */
     border-radius: var(--radius-full);
     text-transform: uppercase;
     letter-spacing: 0.025em;
     line-height: 1;
+    border: 0px solid transparent; /* Added border definition */
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1); /* Subtle shadow for contrast */
 }
 
 .bg-success {
     background-color: var(--status-success-bg) !important;
     color: var(--status-success) !important;
-    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-color: var(--status-success);
+    font-weight: 700;
 }
 
 .bg-danger {
     background-color: var(--status-danger-bg) !important;
     color: var(--status-danger) !important;
-    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-color: var(--status-danger);
+    font-weight: 700;
 }
 
 .bg-warning {
     background-color: var(--status-warning-bg) !important;
     color: var(--status-warning) !important;
-    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-color: var(--status-warning);
+    font-weight: 700;
 }
 
 .bg-info {
     background-color: var(--status-info-bg) !important;
     color: var(--status-info) !important;
-    border: 1px solid rgba(6, 182, 212, 0.2);
+    border-color: var(--status-info);
+    font-weight: 700;
 }
 
 .bg-secondary {
     background-color: var(--status-unknown-bg) !important;
     color: var(--status-unknown) !important;
-    border: 1px solid var(--border-color);
+    border-color: var(--border-color);
+    font-weight: 700;
 }
 
 .bg-primary {
     background-color: var(--brand-primary) !important;
     color: #ffffff !important;
+    border-color: var(--brand-primary);
+    font-weight: 700;
+}
+
+/* Dark mode specific adjustments */
+[data-theme="dark"] .bg-success {
+    background-color: rgba(34, 197, 94, 0.2) !important;
+    color: #4ade80 !important;
+    border-color: #22c55e;
+}
+
+[data-theme="dark"] .bg-danger {
+    background-color: rgba(220, 38, 38, 0.2) !important;
+    color: #f87171 !important;
+    border-color: #dc2626;
+}
+
+[data-theme="dark"] .bg-warning {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+    color: #fbbf24 !important;
+    border-color: #f59e0b;
 }
 
 /* Status Text Colors */
@@ -792,25 +820,63 @@ code, pre {
 }
 
 .beat {
-    width: 6px;
+    width: 8px; /* Increased from 6px */
     height: 100%;
-    border-radius: 8px;
-    background-color: var(--gray-200);
-    transition: transform 0.1s ease;
+    min-height: 18px; /* Minimum touch target */
+    border: 1px solid var(--bg-surface);
+    box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
     cursor: pointer;
+    border-radius: 4px; /* Adjusted for better appearance */
 }
-[data-theme="dark"] .beat { background-color: var(--gray-700); }
+[data-theme="dark"] .beat {
+    background-color: var(--gray-700);
+    border-color: var(--gray-600);
+}
 
-.beat:hover {
-    transform: scale(1.5);
+.beat:hover, .beat:focus {
+    transform: scale(1.6); /* Increased for better visibility */
     z-index: 10;
     position: relative;
+    box-shadow: 0 0 8px rgba(0,0,0,0.3);
 }
 
-.beat-up { background-color: var(--status-success) !important; }
-.beat-down { background-color: var(--status-danger) !important; }
-.beat-warning { background-color: var(--status-warning) !important; }
-.beat-unknown { background-color: var(--status-unknown) !important; }
+.beat-up {
+    background-color: var(--status-success) !important;
+    border-color: var(--status-success);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+}
+
+.beat-down {
+    background-color: var(--status-danger) !important;
+    border-color: var(--status-danger);
+    box-shadow: 0 0 8px rgba(220, 38, 38, 0.3);
+}
+
+.beat-warning {
+    background-color: var(--status-warning) !important;
+    border-color: var(--status-warning);
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+.beat-unknown {
+    background-color: var(--status-unknown) !important;
+    border-color: var(--status-unknown);
+    box-shadow: 0 0 8px rgba(107, 114, 128, 0.3);
+}
+
+/* Enhanced dark mode heartbeat */
+[data-theme="dark"] .beat-up {
+    background-color: #4ade80 !important;
+    border-color: #22c55e;
+    box-shadow: 0 0 12px rgba(74, 222, 128, 0.4);
+}
+
+[data-theme="dark"] .beat-down {
+    background-color: #f87171 !important;
+    border-color: #dc2626;
+    box-shadow: 0 0 12px rgba(248, 113, 113, 0.4);
+}
 
 /* Tooltip styling for better multi-line display */
 .beat[title] {
@@ -852,6 +918,11 @@ canvas {
 
 .text-small { font-size: 0.875rem; }
 .text-xsmall { font-size: 0.75rem; }
+
+/* Alignment utilities */
+.align-bottom { vertical-align: bottom !important; }
+.align-top { vertical-align: top !important; }
+.align-middle { vertical-align: middle !important; }
 
 .fw-medium { font-weight: 500; }
 .fw-semibold { font-weight: 600; }
@@ -988,12 +1059,12 @@ canvas {
 .beat-detail {
     width: 10px;
     height: 30px;
-    margin: 4.16667px;
+    margin: 3px;
 }
 
 .beat-sidebar {
     width: 6px;
-    height: 18px;
+    height: 16px;
     margin: 2px;
 }
 

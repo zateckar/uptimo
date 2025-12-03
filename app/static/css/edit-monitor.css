@@ -31,3 +31,8 @@
 .notification-settings.show {
     display: block;
 }
+
+/* Icon sizes */
+.icon-2xl {
+    font-size: 2rem;
+}

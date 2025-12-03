@@ -2,6 +2,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
+from flask_compress import Compress
 import logging
 import time
 from typing import Any
@@ -9,6 +10,7 @@ from typing import Any
 db = SQLAlchemy()
 login_manager = LoginManager()
 csrf = CSRFProtect()
+compress = Compress()
 
 # Cache for favicon status to reduce database queries
 _favicon_cache = {
@@ -17,6 +19,9 @@ _favicon_cache = {
     "favicon_name": None,
     "timestamp": 0.0,
 }
+
+# Global flag to prevent repeated SQLite WAL configuration
+_sqlite_configured = False
 
 
 def invalidate_favicon_cache(user_id: int) -> None:
@@ -32,7 +37,66 @@ __all__ = [
     "login_manager",
     "csrf",
     "invalidate_favicon_cache",
+    "init_database",
+    "import_all_models",
 ]
+
+
+def init_database() -> None:
+    """Initialize database tables using SQLAlchemy create_all.
+
+    This function creates all database tables based on the current models.
+    It's used for fresh database initialization without Alembic migrations.
+    """
+    import_all_models()
+    db.create_all()
+    print("[OK] Database initialized using db.create_all()")
+
+
+def import_all_models() -> None:
+    """Import all models to ensure they are registered with SQLAlchemy.
+
+    This function imports all model modules to ensure SQLAlchemy is aware
+    of all tables before calling db.create_all().
+    """
+    from app.models import User, AppSettings
+
+    # Reference models to ensure they are imported and registered with SQLAlchemy
+    _ = User, AppSettings
+
+
+def configure_sqlite(app):
+    """Configure SQLite for optimal performance with WAL mode."""
+    global _sqlite_configured
+
+    if _sqlite_configured:
+        return  # Already configured, skip
+
+    if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite"):
+        try:
+            # Enable WAL mode for better concurrency
+            from sqlalchemy import text
+
+            db.session.execute(text("PRAGMA journal_mode=WAL"))
+            db.session.execute(text("PRAGMA synchronous=NORMAL"))
+            db.session.execute(text("PRAGMA cache_size=10000"))  # 10MB cache
+            db.session.execute(text("PRAGMA temp_store=MEMORY"))
+            db.session.execute(
+                text("PRAGMA mmap_size=268435456")
+            )  # 256MB memory mapping
+            db.session.execute(text("PRAGMA busy_timeout=30000"))  # 30 second timeout
+            db.session.commit()
+
+            # Verify WAL mode was enabled
+            result = db.session.execute(text("PRAGMA journal_mode")).scalar()
+            if result and result.lower() == "wal":
+                print("[OK] SQLite WAL mode and optimizations configured")
+                _sqlite_configured = True  # Mark as configured
+            else:
+                print(f"[WARNING] SQLite journal mode: {result} (WAL not enabled)")
+
+        except Exception as e:
+            app.logger.error(f"Failed to configure SQLite WAL mode: {e}")
 
 
 def create_app(config_name: str = "default", start_scheduler: bool = True) -> Flask:
@@ -53,11 +117,24 @@ def create_app(config_name: str = "default", start_scheduler: bool = True) -> Fl
     db.init_app(app)
     login_manager.init_app(app)
     csrf.init_app(app)
+    compress.init_app(app)
+
+    # Configure SQLite optimizations within app context
+    with app.app_context():
+        configure_sqlite(app)
 
     # Configure login manager
     login_manager.login_view = "auth.login"  # type: ignore
     login_manager.login_message = "Please log in to access this page."
     login_manager.login_message_category = "info"
+
+    # Custom unauthorized handler that returns 404 instead of redirect
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        """Return 404 for unauthorized access to prevent route enumeration."""
+        from flask import abort
+
+        abort(404)
 
     # Initialize and start scheduler if requested
     if start_scheduler:
@@ -137,6 +214,13 @@ def create_app(config_name: str = "default", start_scheduler: bool = True) -> Fl
 
     template_filters.register_filters(app)
 
+    # Register CLI commands
+    from app.cli import clear_tls_certs, create_admin, data_retention
+
+    data_retention.register_cli_commands(app)
+    create_admin.register_cli_commands(app)
+    clear_tls_certs.register_cli_commands(app)
+
     # Register context processor for timezone info
     @app.context_processor
     def inject_timezone() -> dict[str, Any]:
@@ -153,15 +237,39 @@ def create_app(config_name: str = "default", start_scheduler: bool = True) -> Fl
     @app.route("/")
     def index() -> Any:
         from flask import redirect, url_for
+        from flask_login import current_user
 
-        return redirect(url_for("dashboard.index"))
+        if current_user.is_authenticated:
+            return redirect(url_for("dashboard.index"))
+        else:
+            return redirect(url_for("auth.login"))
 
-    # Add dynamic favicon route
+    # Add static asset caching routes
+    @app.route("/static/<path:filename>")
+    def serve_static(filename):
+        """Serve static assets with proper caching."""
+        from flask import send_from_directory
+        from werkzeug.exceptions import NotFound
+        from app.utils.cache import static_cache
+
+        # Security: Prevent directory traversal
+        if ".." in filename or filename.startswith("/"):
+            raise NotFound()
+
+        # Apply static caching decorator
+        @static_cache
+        def _serve_static():
+            # Static files are in app/static
+            return send_from_directory("app/static", filename)
+
+        return _serve_static()
+
     @app.route("/favicon.ico")
     def favicon() -> Any:
         from flask import send_from_directory, current_app
         from flask_login import current_user
         from app.models.monitor import Monitor
+        from app.utils.cache import static_cache
 
         # Default to "up" favicon for non-authenticated users or guests
         favicon_name = "favicon-up.svg"
@@ -227,11 +335,15 @@ def create_app(config_name: str = "default", start_scheduler: bool = True) -> Fl
                             "timestamp": current_time,
                         }
 
-        return send_from_directory(
-            current_app.static_folder or "static",  # type: ignore
-            f"images/{favicon_name}",
-            mimetype="image/svg+xml",
-        )
+        @static_cache
+        def _serve_favicon():
+            return send_from_directory(
+                current_app.static_folder or "static",  # type: ignore
+                f"images/{favicon_name}",
+                mimetype="image/svg+xml",
+            )
+
+        return _serve_favicon()
 
     # Register error handlers
     register_error_handlers(app)

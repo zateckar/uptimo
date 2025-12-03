@@ -313,7 +313,60 @@ const Utils = {
     },
     
     // Track the last known favicon status to minimize refreshes
-    _lastKnownFaviconStatus: null
+    _lastKnownFaviconStatus: null,
+    
+    // Convert columnar data format back to traditional row-based format
+    // This handles the optimized columnar format from the backend for better compression
+    convertColumnarData: function(columnarData) {
+        // Check if data is already in row-based format (legacy compatibility)
+        if (Array.isArray(columnarData)) {
+            return columnarData;
+        }
+        
+        // Check if this is columnar format (has column arrays)
+        if (!columnarData || typeof columnarData !== 'object' || !columnarData.ids) {
+            return [];
+        }
+        
+        const ids = columnarData.ids || [];
+        const monitorIds = columnarData.monitor_ids || [];
+        const timestamps = columnarData.timestamps || [];
+        const statuses = columnarData.statuses || [];
+        const responseTimes = columnarData.response_times || [];
+        const statusCodes = columnarData.status_codes || [];
+        const errorMessages = columnarData.error_messages || [];
+        const additionalData = columnarData.additional_data || [];
+        const isSuccesses = columnarData.is_successes || [];
+        const isTimeouts = columnarData.is_timeouts || [];
+        const isCertificateErrors = columnarData.is_certificate_errors || [];
+        
+        // Convert to row-based format
+        const rowData = [];
+        const length = Math.max(
+            ids.length, monitorIds.length, timestamps.length, statuses.length,
+            responseTimes.length, statusCodes.length, errorMessages.length,
+            additionalData.length, isSuccesses.length, isTimeouts.length,
+            isCertificateErrors.length
+        );
+        
+        for (let i = 0; i < length; i++) {
+            rowData.push({
+                id: ids[i],
+                monitor_id: monitorIds[i],
+                timestamp: timestamps[i],
+                status: statuses[i],
+                response_time: responseTimes[i],
+                status_code: statusCodes[i],
+                error_message: errorMessages[i],
+                additional_data: additionalData[i],
+                is_success: isSuccesses[i],
+                is_timeout: isTimeouts[i],
+                is_certificate_error: isCertificateErrors[i]
+            });
+        }
+        
+        return rowData;
+    }
 };
 
 // Initialize theme on page load (for all users, authenticated or not)

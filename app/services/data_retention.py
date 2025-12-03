@@ -281,29 +281,47 @@ class DataRetentionService:
         """Get current database statistics for monitoring."""
         try:
             # Get oldest check result
-            oldest_check = CheckResult.query.order_by(CheckResult.timestamp.asc()).first()
-            oldest_check_record = oldest_check.timestamp.isoformat() if oldest_check else None
-            
+            oldest_check = CheckResult.query.order_by(
+                CheckResult.timestamp.asc()
+            ).first()
+            oldest_check_record = (
+                oldest_check.timestamp.isoformat() if oldest_check else None
+            )
+
             # Get newest check result
-            newest_check = CheckResult.query.order_by(CheckResult.timestamp.desc()).first()
-            newest_check_record = newest_check.timestamp.isoformat() if newest_check else None
-            
+            newest_check = CheckResult.query.order_by(
+                CheckResult.timestamp.desc()
+            ).first()
+            newest_check_record = (
+                newest_check.timestamp.isoformat() if newest_check else None
+            )
+
             # Get oldest incident
             oldest_incident = Incident.query.order_by(Incident.started_at.asc()).first()
-            oldest_incident_record = oldest_incident.started_at.isoformat() if oldest_incident else None
-            
+            oldest_incident_record = (
+                oldest_incident.started_at.isoformat() if oldest_incident else None
+            )
+
             # Get newest incident
-            newest_incident = Incident.query.order_by(Incident.started_at.desc()).first()
-            newest_incident_record = newest_incident.started_at.isoformat() if newest_incident else None
-            
+            newest_incident = Incident.query.order_by(
+                Incident.started_at.desc()
+            ).first()
+            newest_incident_record = (
+                newest_incident.started_at.isoformat() if newest_incident else None
+            )
+
             # Get oldest notification log
-            oldest_log = NotificationLog.query.order_by(NotificationLog.sent_at.asc()).first()
+            oldest_log = NotificationLog.query.order_by(
+                NotificationLog.sent_at.asc()
+            ).first()
             oldest_log_record = oldest_log.sent_at.isoformat() if oldest_log else None
-            
+
             # Get newest notification log
-            newest_log = NotificationLog.query.order_by(NotificationLog.sent_at.desc()).first()
+            newest_log = NotificationLog.query.order_by(
+                NotificationLog.sent_at.desc()
+            ).first()
             newest_log_record = newest_log.sent_at.isoformat() if newest_log else None
-            
+
             stats = {
                 "check_results": {
                     "total_count": CheckResult.query.count(),
@@ -386,7 +404,9 @@ class DataRetentionService:
                 "retention_days": self.get_retention_policy("notification_logs"),
             }
             total_est = estimate["total_estimated_deletions"]  # type: ignore
-            estimate["total_estimated_deletions"] = total_est + notification_logs_to_delete
+            estimate["total_estimated_deletions"] = (
+                total_est + notification_logs_to_delete
+            )
 
             return estimate
 

@@ -1,0 +1,15 @@
+{% from "dashboard/_tls_dns_macros.html" import render_tls_certificate, render_tls_summary, render_domain_registration, render_domain_summary, render_dns_records, render_dns_summary %}
+
+{% if render_type == 'tls' %}
+{{ render_tls_certificate(cert_info, monitor) }}
+{% elif render_type == 'tls_summary' %}
+{{ render_tls_summary(cert_info) }}
+{% elif render_type == 'domain' %}
+{{ render_domain_registration(domain_check, monitor) }}
+{% elif render_type == 'domain_summary' %}
+{{ render_domain_summary(domain_check, monitor) }}
+{% elif render_type == 'dns' %}
+{{ render_dns_records(domain_check, monitor) }}
+{% elif render_type == 'dns_summary' %}
+{{ render_dns_summary(domain_check) }}
+{% endif %}

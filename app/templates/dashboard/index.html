@@ -58,7 +58,8 @@
             {% for monitor in monitors %}
             <div class="monitor-item{% if not monitor.is_active %} paused{% endif %}"
                data-monitor-id="{{ monitor.id }}"
-               data-monitor-name="{{ monitor.name }}">
+               data-monitor-name="{{ monitor.name }}"
+               data-check-interval="{{ monitor.check_interval }}">
                 <div class="d-flex w-100 justify-content-between align-items-center mb-1">
                     <div class="monitor-name text-truncate pe-2">{{ monitor.name }}</div>
                     <div>
@@ -144,35 +145,51 @@
             
             <!-- Status Cards -->
             <div class="row mb-3 g-1">
-                <div class="col-md-3">
+                <div class="col-6 col-md-2">
                     <div class="card text-center">
-                        <div class="card-body py-2 px-2">
-                            <h6 class="mb-0" id="currentResponseTime">--</h6>
+                        <div class="card-body py-2 px-1">
+                            <h6 class="mb-0 small" id="currentResponseTime">--</h6>
                             <small class="text-muted text-xsmall-07">Response Time</small>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-6 col-md-2">
                     <div class="card text-center">
-                        <div class="card-body py-2 px-2">
-                            <h6 class="mb-0" id="uptime24h">--</h6>
+                        <div class="card-body py-2 px-1">
+                            <h6 class="mb-0 small" id="avgResponseTime24h">--</h6>
+                            <small class="text-muted text-xsmall-07">Avg Response (24h)</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <div class="card text-center">
+                        <div class="card-body py-2 px-1">
+                            <h6 class="mb-0 small" id="uptime24h">--</h6>
                             <small class="text-muted text-xsmall-07">Uptime (24h)</small>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-6 col-md-2">
                     <div class="card text-center">
-                        <div class="card-body py-2 px-2">
-                            <h6 class="mb-0" id="uptime7d">--</h6>
+                        <div class="card-body py-2 px-1">
+                            <h6 class="mb-0 small" id="uptime7d">--</h6>
                             <small class="text-muted text-xsmall-07">Uptime (7d)</small>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-6 col-md-2">
                     <div class="card text-center">
-                        <div class="card-body py-2 px-2">
-                            <h6 class="mb-0" id="uptime30d">--</h6>
+                        <div class="card-body py-2 px-1">
+                            <h6 class="mb-0 small" id="uptime30d">--</h6>
                             <small class="text-muted text-xsmall-07">Uptime (30d)</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <div class="card text-center">
+                        <div class="card-body py-2 px-1">
+                            <h6 class="mb-0 small" id="uptime1y">--</h6>
+                            <small class="text-muted text-xsmall-07">Uptime (1y)</small>
                         </div>
                     </div>
                 </div>
@@ -192,6 +209,7 @@
                                 <!-- Heartbeat visualization will be loaded here -->
                                 
                             </div>
+                           
                         </div>
                     </div>
                 </div>
@@ -223,6 +241,7 @@
 
                 <!-- SSL Certificate Section -->
                 <div class="col-lg-4 col-md-6 mb-3 ssl-domain-item" data-section-type="ssl" data-expiration="">
+                    <div class="accordion" id="accordionSSL">
                     <div class="card collapsible-section h-100" id="sslCertificateSection">
                         <div class="card-header d-flex justify-content-between align-items-center"
                              role="button"
@@ -231,39 +250,39 @@
                              data-bs-target="#sslCertificateCollapse"
                              aria-expanded="false"
                              aria-controls="sslCertificateCollapse"
-                             aria-label="SSL Certificate Information, Press to expand/collapse">
+                             aria-label="TLS Certificate Information, Press to expand/collapse">
                             <div class="d-flex align-items-center">
                                 <i class="bi bi-shield-lock me-2 text-primary"></i>
-                                <h6 class="mb-0">SSL Certificate</h6>
+                                <h6 class="mb-0">TLS Certificate</h6>
                             </div>
                             <div class="d-flex align-items-center">
-                                <small class="badge me-2" id="sslStatus">HTTPS</small>
                                 <small class="text-muted summary-status" id="sslSummary">
-                                    <span class="summary-days summary-loading">Loading...</span>
                                 </small>
                                 <i class="bi bi-chevron-down ms-2 collapse-icon"></i>
                             </div>
                         </div>
-                        <div class="collapse" id="sslCertificateCollapse">
+                        <div class="card-body summary-body px-3" id="sslSummaryBody">
+                            <!-- Summary content will be inserted here -->
+                        </div>
+                        <div class="collapse" id="sslCertificateCollapse" data-bs-parent="#accordionSSL">
                             <div class="card-body px-3">
                                 <div id="sslCertificateInfo">
                                     <div class="text-center text-muted">
                                         <div class="spinner-border spinner-border-sm" role="status">
-                                            <span class="visually-hidden">Loading SSL certificate information...</span>
+                                            <span class="visually-hidden">Loading TLS certificate information...</span>
                                         </div>
-                                        <p class="mt-2 mb-0">Loading SSL certificate information...</p>
+                                        <p class="mt-2 mb-0">Loading TLS certificate information...</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="card-body d-none summary-body px-3" id="sslSummaryBody">
-                            <!-- Summary content will be inserted here -->
-                        </div>
+                    </div>
                     </div>
                 </div>
 
                 <!-- Domain Registration Section -->
                 <div class="col-lg-4 col-md-6 mb-3 ssl-domain-item" data-section-type="domain" data-expiration="">
+                    <div class="accordion" id="accordionDomain">
                     <div class="card collapsible-section h-100" id="domainRegistrationSection">
                         <div class="card-header d-flex justify-content-between align-items-center"
                              role="button"
@@ -275,17 +294,18 @@
                              aria-label="Domain Registration Information, Press to expand/collapse">
                             <div class="d-flex align-items-center">
                                 <i class="bi bi-globe me-2 text-info"></i>
-                                <h6 class="mb-0">Domain Registration</h6>
+                                <h6 class="mb-0">Domain</h6>
                             </div>
                             <div class="d-flex align-items-center">
-                                <small class="badge me-2" id="domainStatus">DNS</small>
                                 <small class="text-muted summary-status" id="domainSummary">
-                                    <span class="summary-days summary-loading">Loading...</span>
-                                </small>
+                                            </small>
                                 <i class="bi bi-chevron-down ms-2 collapse-icon"></i>
                             </div>
                         </div>
-                        <div class="collapse" id="domainRegistrationCollapse">
+                        <div class="card-body summary-body px-3" id="domainSummaryBody">
+                            <!-- Summary content will be inserted here -->
+                        </div>
+                        <div class="collapse" id="domainRegistrationCollapse" data-bs-parent="#accordionDomain">
                             <div class="card-body px-3">
                                 <div id="domainRegistrationInfo">
                                     <div class="text-center text-muted">
@@ -297,14 +317,13 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="card-body d-none summary-body px-3" id="domainSummaryBody">
-                            <!-- Summary content will be inserted here -->
-                        </div>
+                    </div>
                     </div>
                 </div>
 
                 <!-- DNS Information Section -->
                 <div class="col-lg-4 col-md-12 mb-3 ssl-domain-item" data-section-type="dns" data-expiration="">
+                    <div class="accordion" id="accordionDNS">
                     <div class="card collapsible-section h-100" id="dnsInfoSection">
                         <div class="card-header d-flex justify-content-between align-items-center"
                              role="button"
@@ -320,12 +339,14 @@
                             </div>
                             <div class="d-flex align-items-center">
                                 <small class="text-muted summary-status" id="dnsSummary">
-                                    <span class="summary-days summary-loading">Loading...</span>
                                 </small>
                                 <i class="bi bi-chevron-down ms-2 collapse-icon"></i>
                             </div>
                         </div>
-                        <div class="collapse" id="dnsInfoCollapse">
+                        <div class="card-body summary-body px-3" id="dnsSummaryBody">
+                            <!-- Summary content will be inserted here -->
+                        </div>
+                        <div class="collapse" id="dnsInfoCollapse" data-bs-parent="#accordionDNS">
                             <div class="card-body px-3">
                                 <div id="dnsInfo">
                                     <div class="text-center text-muted">
@@ -337,9 +358,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="card-body d-none summary-body px-3" id="dnsSummaryBody">
-                            <!-- Summary content will be inserted here -->
-                        </div>
+                    </div>
                     </div>
                 </div>
             </div>

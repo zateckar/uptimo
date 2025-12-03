@@ -58,72 +58,21 @@
 
                         <!-- Email Configuration -->
                         <div id="emailConfig" class="d-none">
-                            <h5>Email Configuration</h5>
+                            <h5 class="mb-3">
+                                <i class="bi bi-envelope text-primary"></i> Email Configuration (SendGrid)
+                            </h5>
                             
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    {{ form.smtp_server.label(class="form-label") }}
-                                    {{ form.smtp_server(class="form-control") }}
-                                    <small class="form-text text-muted">Leave empty to use default SMTP settings</small>
-                                    {% if form.smtp_server.errors %}
-                                        <div class="text-danger small mt-1">
-                                            {% for error in form.smtp_server.errors %}
-                                                {{ error }}
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                                <div class="col-md-3">
-                                    {{ form.smtp_port.label(class="form-label") }}
-                                    {{ form.smtp_port(class="form-control") }}
-                                    {% if form.smtp_port.errors %}
-                                        <div class="text-danger small mt-1">
-                                            {% for error in form.smtp_port.errors %}
-                                                {{ error }}
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check mt-4">
-                                        {{ form.use_tls(class="form-check-input") }}
-                                        {{ form.use_tls.label(class="form-check-label") }}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    {{ form.smtp_username.label(class="form-label") }}
-                                    {{ form.smtp_username(class="form-control") }}
-                                    <small class="form-text text-muted">SMTP username (often your email)</small>
-                                    {% if form.smtp_username.errors %}
-                                        <div class="text-danger small mt-1">
-                                            {% for error in form.smtp_username.errors %}
-                                                {{ error }}
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                                <div class="col-md-6">
-                                    {{ form.smtp_password.label(class="form-label") }}
-                                    {{ form.smtp_password(class="form-control") }}
-                                    <small class="form-text text-muted">SMTP password or app password</small>
-                                    {% if form.smtp_password.errors %}
-                                        <div class="text-danger small mt-1">
-                                            {% for error in form.smtp_password.errors %}
-                                                {{ error }}
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
-                                </div>
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-info-circle"></i>
+                                <strong>SendGrid Integration:</strong> Uptimo uses SendGrid for reliable email delivery. 
+                                Just configure the recipient email below and ensure SendGrid is set up in your application settings.
                             </div>
 
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     {{ form.from_email.label(class="form-label") }}
-                                    {{ form.from_email(class="form-control") }}
-                                    <small class="form-text text-muted">Sender email address</small>
+                                    {{ form.from_email(class="form-control", placeholder="noreply@yourdomain.com") }}
+                                    <small class="form-text text-muted">Sender email address (optional, uses default if not provided)</small>
                                     {% if form.from_email.errors %}
                                         <div class="text-danger small mt-1">
                                             {% for error in form.from_email.errors %}
@@ -134,7 +83,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     {{ form.to_email.label(class="form-label") }}
-                                    {{ form.to_email(class="form-control") }}
+                                    {{ form.to_email(class="form-control", placeholder="alerts@yourdomain.com") }}
                                     <small class="form-text text-muted">Recipient email address</small>
                                     {% if form.to_email.errors %}
                                         <div class="text-danger small mt-1">
@@ -145,15 +94,33 @@
                                     {% endif %}
                                 </div>
                             </div>
+
+                            <div class="card border-secondary">
+                                <div class="card-header bg-light py-2">
+                                    <small class="fw-semibold text-secondary">
+                                        <i class="bi bi-gear"></i> SendGrid Setup Instructions
+                                    </small>
+                                </div>
+                                <div class="card-body">
+                                    <ol class="small mb-0">
+                                        <li class="mb-2">Create a SendGrid account and verify your domain</li>
+                                        <li class="mb-2">Set <code class="text-monospace">SENDGRID_API_KEY</code> in your environment variables</li>
+                                        <li class="mb-2">Optionally set <code class="text-monospace">MAIL_DEFAULT_SENDER</code> for default from email</li>
+                                        <li>Test your configuration using the Test button after creating this channel</li>
+                                    </ol>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Telegram Configuration -->
                         <div id="telegramConfig" class="d-none">
-                            <h5>Telegram Configuration</h5>
+                            <h5 class="mb-3">
+                                <i class="bi bi-telegram text-info"></i> Telegram Configuration
+                            </h5>
                             
                             <div class="mb-3">
                                 {{ form.bot_token.label(class="form-label") }}
-                                {{ form.bot_token(class="form-control") }}
+                                {{ form.bot_token(class="form-control", placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz") }}
                                 <small class="form-text text-muted">Get your bot token from @BotFather</small>
                                 {% if form.bot_token.errors %}
                                     <div class="text-danger small mt-1">
@@ -166,8 +133,8 @@
 
                             <div class="mb-3">
                                 {{ form.chat_id.label(class="form-label") }}
-                                {{ form.chat_id(class="form-control") }}
-                                <small class="form-text text-muted">Your user or group chat ID</small>
+                                {{ form.chat_id(class="form-control", placeholder="123456789") }}
+                                <small class="form-text text-muted">Your user or group chat ID (use @userinfobot to find yours)</small>
                                 {% if form.chat_id.errors %}
                                     <div class="text-danger small mt-1">
                                         {% for error in form.chat_id.errors %}
@@ -180,12 +147,14 @@
 
                         <!-- Slack Configuration -->
                         <div id="slackConfig" class="d-none">
-                            <h5>Slack Configuration</h5>
+                            <h5 class="mb-3">
+                                <i class="bi bi-slack text-success"></i> Slack Configuration
+                            </h5>
                             
                             <div class="mb-3">
                                 {{ form.webhook_url.label(class="form-label") }}
-                                {{ form.webhook_url(class="form-control") }}
-                                <small class="form-text text-muted">Incoming webhook URL from Slack</small>
+                                {{ form.webhook_url(class="form-control", placeholder="https://hooks.slack.com/services/...") }}
+                                <small class="form-text text-muted">Incoming webhook URL from Slack app settings</small>
                                 {% if form.webhook_url.errors %}
                                     <div class="text-danger small mt-1">
                                         {% for error in form.webhook_url.errors %}
@@ -198,7 +167,7 @@
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     {{ form.channel.label(class="form-label") }}
-                                    {{ form.channel(class="form-control") }}
+                                    {{ form.channel(class="form-control", placeholder="#alerts") }}
                                     <small class="form-text text-muted">Slack channel (e.g., #alerts)</small>
                                     {% if form.channel.errors %}
                                         <div class="text-danger small mt-1">
@@ -210,7 +179,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     {{ form.username.label(class="form-label") }}
-                                    {{ form.username(class="form-control") }}
+                                    {{ form.username(class="form-control", placeholder="Uptimo") }}
                                     <small class="form-text text-muted">Bot username for Slack messages</small>
                                     {% if form.username.errors %}
                                         <div class="text-danger small mt-1">
@@ -246,11 +215,12 @@
                         <h6 class="fw-semibold mb-3">
                             <i class="bi bi-envelope text-primary"></i> Email Setup
                         </h6>
-                        <p class="small text-muted mb-3">Configure email notifications using SMTP or SendGrid:</p>
+                        <p class="small text-muted mb-3">Configure email notifications using SendGrid:</p>
                         <ul class="small mb-0">
-                            <li class="mb-2"><strong>SMTP:</strong> Provide your email server credentials</li>
-                            <li class="mb-2"><strong>SendGrid:</strong> Configure in app settings and just provide recipient</li>
-                            <li><strong>Testing:</strong> Use the Test button after creating</li>
+                            <li class="mb-2"><strong>Simple:</strong> Just provide recipient email address</li>
+                            <li class="mb-2"><strong>Reliable:</strong> SendGrid handles delivery and bounce management</li>
+                            <li class="mb-2"><strong>Setup:</strong> Configure SENDGRID_API_KEY in environment</li>
+                            <li><strong>Optional:</strong> Set custom from email for branding</li>
                         </ul>
                     </div>
 
@@ -288,7 +258,7 @@
                         <div class="d-flex flex-column gap-2">
                             <div class="p-2 rounded bg-light border">
                                 <strong class="small"><i class="bi bi-envelope"></i> Email:</strong>
-                                <span class="small text-muted">Classic email notifications</span>
+                                <span class="small text-muted">Classic email notifications via SendGrid</span>
                             </div>
                             <div class="p-2 rounded bg-light border">
                                 <strong class="small"><i class="bi bi-telegram"></i> Telegram:</strong>
@@ -308,41 +278,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-document.getElementById('channelType').addEventListener('change', function() {
-    hideAllConfigs();
-    hideAllHelp();
-    
-    switch(this.value) {
-        case 'email':
-            document.getElementById('emailConfig').style.display = 'block';
-            document.getElementById('emailHelp').style.display = 'block';
-            break;
-        case 'telegram':
-            document.getElementById('telegramConfig').style.display = 'block';
-            document.getElementById('telegramHelp').style.display = 'block';
-            break;
-        case 'slack':
-            document.getElementById('slackConfig').style.display = 'block';
-            document.getElementById('slackHelp').style.display = 'block';
-            break;
-    }
-});
-
-function hideAllConfigs() {
-    document.getElementById('emailConfig').style.display = 'none';
-    document.getElementById('telegramConfig').style.display = 'none';
-    document.getElementById('slackConfig').style.display = 'none';
-}
-
-function hideAllHelp() {
-    document.getElementById('emailHelp').style.display = 'none';
-    document.getElementById('telegramHelp').style.display = 'none';
-    document.getElementById('slackHelp').style.display = 'none';
-    document.getElementById('defaultHelp').style.display = 'none';
-}
-
-// Initialize with help hidden
-document.getElementById('defaultHelp').style.display = 'block';
-</script>
+<script src="{{ url_for('static', filename='js/notification-channels.js') }}"></script>
 {% endblock %}

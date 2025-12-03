@@ -46,6 +46,7 @@ venv.bak/
 htmlcov/
 .tox/
 .hypothesis/
+test_*
 
 # Database
 *.db
@@ -86,8 +87,10 @@ apply_migration_to_instance.py
 fix_*.py
 migrate_*.py
 run.py
+docs/
 
 # Temporary files
 tmp/
 temp/
 *.tmp
+DISCOVERIES.md

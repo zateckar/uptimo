@@ -244,7 +244,7 @@ def get_incidents():
 def dashboard_overview():
     """Get dashboard overview data"""
     from typing import Dict, Any
-    
+
     monitors = Monitor.query.filter_by(user_id=current_user.id).all()
 
     overview: Dict[str, Any] = {

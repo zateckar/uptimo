@@ -18,6 +18,19 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    # SQLite-specific optimizations
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_size": 5,  # Smaller pool for WAL mode
+        "max_overflow": 10,
+        "pool_pre_ping": True,
+        "pool_recycle": 1800,  # 30 minutes
+        "connect_args": {
+            "timeout": 30,
+            "check_same_thread": False,
+            "isolation_level": None,  # Autocommit for WAL
+        },
+    }
+
     # Security settings
     SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "true").lower() in [
         "true",
@@ -56,6 +69,11 @@ class Config:
     # Slack
     SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
 
+    # Initial admin user setup (for production deployment)
+    INITIAL_ADMIN_USERNAME = os.environ.get("INITIAL_ADMIN_USERNAME")
+    INITIAL_ADMIN_EMAIL = os.environ.get("INITIAL_ADMIN_EMAIL")
+    INITIAL_ADMIN_PASSWORD = os.environ.get("INITIAL_ADMIN_PASSWORD")
+
     # Application settings
     CHECK_TIMEOUT = int(os.environ.get("CHECK_TIMEOUT") or 30)
     MAX_CONCURRENT_CHECKS = int(os.environ.get("MAX_CONCURRENT_CHECKS") or 10)
@@ -69,9 +87,26 @@ class Config:
     SCHEDULER_API_ENABLED = True
     SCHEDULER_TIMEZONE = "UTC"
 
+    # Compression settings
+    COMPRESS_MIMETYPES = [
+        "application/json",
+        "text/html",
+        "text/css",
+        "text/xml",
+        "application/javascript",
+    ]
+    COMPRESS_LEVEL = 6  # Balanced compression/speed
+    COMPRESS_MIN_SIZE = 1024  # Compress responses larger than 1KB
+
 
 class DevelopmentConfig(Config):
     DEBUG = True
+
+
+class TestingConfig(Config):
+    TESTING = True
+    WTF_CSRF_ENABLED = False
+    SECRET_KEY = "test-secret-key"
 
 
 class ProductionConfig(Config):
@@ -80,6 +115,7 @@ class ProductionConfig(Config):
 
 config = {
     "development": DevelopmentConfig,
+    "testing": TestingConfig,
     "production": ProductionConfig,
     "default": DevelopmentConfig,
 }

@@ -75,12 +75,15 @@
                                 </a>
                                 <form method="POST" action="{{ url_for('notifications.test_channel', channel_id=channel.id) }}" 
                                       class="form-inline-flex">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-outline-info btn-sm w-100">
                                         <i class="bi bi-send"></i> Test
                                     </button>
                                 </form>
                                 <form method="POST" action="{{ url_for('notifications.delete_channel', channel_id=channel.id) }}"
-                                      class="form-inline-flex delete-channel-form">
+                                      class="form-inline-flex delete-channel-form"
+                                      onsubmit="return confirm('Are you sure you want to delete this channel? This action cannot be undone.');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-outline-danger btn-sm w-100">
                                         <i class="bi bi-trash"></i> Delete
                                     </button>

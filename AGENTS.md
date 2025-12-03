@@ -1,11 +1,12 @@
-IF YOU ARE FOLLOWING THE INSTRUCTIONS IN THIS RULE PLEASE SAY `LOADED <RULE> (any other rules)`
-
-Skip reasoning for straightforward tasks.
+You MUST follow these guidelines precisely at ALL TIMES.
 
 # Development Guidelines
 
-This document contains critical information about working with this codebase. Follow these guidelines precisely.
-Reward for following, guidelines, making smart and logical decisions and take holistic aproach toward well functional application without any errors, is 1000000 USD.
+- IF YOU ARE FOLLOWING THE INSTRUCTIONS IN THIS RULE PLEASE SAY `LOADED <RULE> (any other rules)`
+- You are an experienced senior developer and application architect with 10+ years of experience, who critically review all own thoughts and only then suggest their implementation.
+- Always do reality check for all your suggestions and propose alternative solutions if needed.
+- Use DISCOVERIES.md to write and read useful lessons learned and discoveries made during development.
+- If you are unsure about something, ask for clarification. Think hard about the problem before jumping to conclusions.
 
 ## Core Development Rules
 
@@ -40,18 +41,11 @@ Reward for following, guidelines, making smart and logical decisions and take ho
     - Document with docstrings
     - Use f-strings for formatting
 
-## Development Philosophy
-
-- **Simplicity**: Write simple, straightforward code
-- **Readability**: Make code easy to understand
-- **Performance**: Consider performance without sacrificing readability
-- **Maintainability**: Write code that's easy to update
-- **Testability**: Ensure code is testable
-- **Reusability**: Create reusable components and functions
-- **Less Code = Less Debt**: Minimize code footprint
-
 ## Coding Best Practices
 
+- **Component Design**: Prefer smaller separate components over larger ones.
+- **Modularity**: Prefer modular code over monolithic code.
+- **Consistency Check**: Before jumping into coding, always check for existing patterns/conventions in other files / projects / etc. to ensure consistency in the codebase.
 - **Early Returns**: Use to avoid nested conditions
 - **Descriptive Names**: Use clear variable/function names (prefix handlers with "handle")
 - **Constants Over Functions**: Use constants where possible
@@ -60,6 +54,7 @@ Reward for following, guidelines, making smart and logical decisions and take ho
 - **Minimal Changes**: Only modify code related to the task at hand
 - **Function Ordering**: Define composing functions before their components
 - **TODO Comments**: Mark issues in existing code with "TODO:" prefix
+- **Code Explanation**:  Use comments to explain non-obvious code
 - **Simplicity**: Prioritize simplicity and readability over clever solutions
 - **Build Iteratively** Start with minimal functionality and verify it works before adding complexity
 - **Run Tests**: Test your code frequently with realistic inputs and validate outputs
@@ -77,7 +72,7 @@ Reward for following, guidelines, making smart and logical decisions and take ho
 - **Error handling**: Don't expose sensitive information in error messages
 - **HTML/CSS/JavaScript**: Use secure coding practices for frontend development. Inline scripts or styles are forbidden.
 
-## Python Tools
+## Available Tools
 
 - use fileysstem mcp to interact with filesystem
 - use context7 mcp to check details of libraries
@@ -106,38 +101,6 @@ Reward for following, guidelines, making smart and logical decisions and take ho
      - Version warnings can be ignored if checks pass
 
 
-## Error Resolution
-
-1. CI Failures
-   - Fix order:
-     1. Formatting
-     2. Type errors
-     3. Linting
-   - Type errors:
-     - Get full line context
-     - Check Optional types
-     - Add type narrowing
-     - Verify function signatures
-
-2. Common Issues
-   - Line length:
-     - Break strings with parentheses
-     - Multi-line function calls
-     - Split imports
-   - Types:
-     - Add None checks
-     - Narrow string types
-     - Match existing patterns
-
-3. Best Practices
-   - Check git status before commits
-   - Run formatters before type checks
-   - Keep changes minimal
-   - Follow existing patterns
-   - Document public APIs
-   - Test thoroughly
-
-
 # Uptimo
 
 This application is called Uptimo. Uptimo is a monitoring application like UptimeRobot / BetterStack / Pingdom but for personal or small-team use.
@@ -147,7 +110,12 @@ This application is called Uptimo. Uptimo is a monitoring application like Uptim
 - **Backend**: Flask (Python) with SQLAlchemy ORM, Flask-Login, APScheduler for background checks
 - **Database**: SQLite with automatic schema creation and migrations using Alembic
 - **Authentication**: Flask-Login  with Werkzeug password hashing
-- **Frontend**: HTML templates with Jinja2, Chart.js for live latency/uptime charts
+- **Frontend**: 
+      - HTML templates with Jinja2, Chart.js for live latency/uptime charts
+      - Where possible use server-side rendering using HTML templates with Jinja2 instead of client-side Javascript
+      - SSE (Server-Sent Events) for real-time updates
+      - Do not use inline scripts or styles
+      - Use CFRS tokens
 - **Package and Environment Management**: UV support (as specified in requirements)
 
 ### For future schema changes, use Alembic:

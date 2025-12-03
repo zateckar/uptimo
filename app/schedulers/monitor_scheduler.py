@@ -149,13 +149,13 @@ class MonitorScheduler:
                 # Check for SSL warnings
                 if (
                     check_result.additional_data
-                    and "ssl_info" in check_result.additional_data
+                    and "cert_info" in check_result.additional_data
                 ):
-                    ssl_info = check_result.additional_data["ssl_info"]
-                    days_to_expiration = ssl_info.get("days_to_expiration", 999)
+                    cert_info = check_result.additional_data["cert_info"]
+                    days_to_expiration = cert_info.get("days_to_expiration", 999)
 
                     if days_to_expiration <= monitor.cert_expiration_threshold:
-                        self._handle_ssl_warning(monitor, ssl_info)
+                        self._handle_ssl_warning(monitor, cert_info)
 
                 logger.debug(
                     f"Check completed for monitor {monitor.name}: {check_result.status}"

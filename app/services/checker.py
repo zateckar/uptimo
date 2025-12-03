@@ -4,7 +4,7 @@ import ssl
 import time
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 from typing import Any, Dict, Optional
 
@@ -88,6 +88,70 @@ class MonitorChecker:
 
         return hostname.lower() == self.monitor.expected_domain.lower()
 
+    def _is_ip_address(self, target: str) -> bool:
+        """Check if the target is an IP address (IPv4 or IPv6)."""
+        if not target:
+            return False
+
+        # IPv4 pattern check
+        ipv4_parts = target.split(".")
+        if len(ipv4_parts) == 4:
+            try:
+                return all(0 <= int(part) <= 255 for part in ipv4_parts)
+            except ValueError:
+                pass
+
+        # IPv6 pattern check (simplified - basic validation)
+        if ":" in target:
+            # Try to use ipaddress module if available
+            try:
+                import ipaddress
+
+                ipaddress.IPv6Address(target)
+                return True
+            except (ImportError, ValueError):
+                pass
+
+            # Fallback: check if it looks like IPv6
+            parts = target.split(":")
+            if len(parts) >= 2 and len(parts) <= 8:
+                # Check if each part is valid hex
+                for part in parts:
+                    if part == "":
+                        continue  # Allow empty parts for :: notation
+                    try:
+                        int(part, 16)
+                    except ValueError:
+                        return False
+                return True
+
+        return False
+
+    def _should_collect_tls_data(self) -> bool:
+        """Check if TLS data should be collected (first check or >24h old)."""
+        if not self.monitor.last_tls_check:
+            return True
+        # Ensure timezone-aware comparison (SQLite stores naive datetimes)
+        last_check = self.monitor.last_tls_check
+        if last_check.tzinfo is None:
+            last_check = last_check.replace(tzinfo=timezone.utc)
+        time_since_last = datetime.now(timezone.utc) - last_check
+        return time_since_last > timedelta(hours=24)
+
+    def _should_collect_domain_data(self) -> bool:
+        """Check if domain data should be collected (first check or >24h old)."""
+        # Don't collect if previously failed for IP addresses
+        if self.monitor.domain_check_failed:
+            return False
+        if not self.monitor.last_domain_check:
+            return True
+        # Ensure timezone-aware comparison (SQLite stores naive datetimes)
+        last_check = self.monitor.last_domain_check
+        if last_check.tzinfo is None:
+            last_check = last_check.replace(tzinfo=timezone.utc)
+        time_since_last = datetime.now(timezone.utc) - last_check
+        return time_since_last > timedelta(hours=24)
+
     def _get_domain_info(self, hostname: str) -> Dict[str, Any]:
         """Get domain registration information."""
         if not WHOIS_AVAILABLE:
@@ -96,12 +160,28 @@ class MonitorChecker:
         try:
             domain_info_result = whois.whois(hostname)
             # whois returns a dict-like object, access attributes safely
-            domain_info = domain_info_result if isinstance(domain_info_result, dict) else domain_info_result.__dict__
+            domain_info = (
+                domain_info_result
+                if isinstance(domain_info_result, dict)
+                else domain_info_result.__dict__
+            )
 
             # Parse dates to ensure they're serializable
-            creation_date = domain_info.get("creation_date") if isinstance(domain_info, dict) else getattr(domain_info_result, "creation_date", None)
-            expiration_date = domain_info.get("expiration_date") if isinstance(domain_info, dict) else getattr(domain_info_result, "expiration_date", None)
-            updated_date = domain_info.get("updated_date") if isinstance(domain_info, dict) else getattr(domain_info_result, "updated_date", None)
+            creation_date = (
+                domain_info.get("creation_date")
+                if isinstance(domain_info, dict)
+                else getattr(domain_info_result, "creation_date", None)
+            )
+            expiration_date = (
+                domain_info.get("expiration_date")
+                if isinstance(domain_info, dict)
+                else getattr(domain_info_result, "expiration_date", None)
+            )
+            updated_date = (
+                domain_info.get("updated_date")
+                if isinstance(domain_info, dict)
+                else getattr(domain_info_result, "updated_date", None)
+            )
 
             # Handle lists (some whois returns lists)
             if isinstance(creation_date, list):
@@ -119,12 +199,36 @@ class MonitorChecker:
                 days_to_expiration = (expiration_date - datetime.now(timezone.utc)).days
 
             # Get other attributes safely
-            registrar = domain_info.get("registrar") if isinstance(domain_info, dict) else getattr(domain_info_result, "registrar", None)
-            name_servers = domain_info.get("name_servers") if isinstance(domain_info, dict) else getattr(domain_info_result, "name_servers", None)
-            status_val = domain_info.get("status") if isinstance(domain_info, dict) else getattr(domain_info_result, "status", None)
-            registrant = domain_info.get("registrant") if isinstance(domain_info, dict) else getattr(domain_info_result, "registrant", None)
-            admin_emails = domain_info.get("admin_emails") if isinstance(domain_info, dict) else getattr(domain_info_result, "admin_emails", None)
-            tech_emails = domain_info.get("tech_emails") if isinstance(domain_info, dict) else getattr(domain_info_result, "tech_emails", None)
+            registrar = (
+                domain_info.get("registrar")
+                if isinstance(domain_info, dict)
+                else getattr(domain_info_result, "registrar", None)
+            )
+            name_servers = (
+                domain_info.get("name_servers")
+                if isinstance(domain_info, dict)
+                else getattr(domain_info_result, "name_servers", None)
+            )
+            status_val = (
+                domain_info.get("status")
+                if isinstance(domain_info, dict)
+                else getattr(domain_info_result, "status", None)
+            )
+            registrant = (
+                domain_info.get("registrant")
+                if isinstance(domain_info, dict)
+                else getattr(domain_info_result, "registrant", None)
+            )
+            admin_emails = (
+                domain_info.get("admin_emails")
+                if isinstance(domain_info, dict)
+                else getattr(domain_info_result, "admin_emails", None)
+            )
+            tech_emails = (
+                domain_info.get("tech_emails")
+                if isinstance(domain_info, dict)
+                else getattr(domain_info_result, "tech_emails", None)
+            )
 
             return {
                 "domain": hostname,
@@ -151,7 +255,7 @@ class MonitorChecker:
 
         try:
             import dns.resolver  # type: ignore
-            
+
             dns_info: Dict[str, Any] = {}
 
             # Get A records
@@ -292,25 +396,60 @@ class HTTPChecker(MonitorChecker):
             additional_data = {}
 
             # Get domain and DNS information if hostname is available
-            if parsed_url.hostname:
-                # Get domain registration info
-                domain_info = self._get_domain_info(parsed_url.hostname)
-                additional_data["domain_info"] = domain_info
+            # Only collect if needed (first check or >24h old)
+            if (
+                parsed_url.hostname
+                and self.monitor.check_domain
+                and self._should_collect_domain_data()
+            ):
+                # Skip if target is an IP address
+                if self._is_ip_address(parsed_url.hostname):
+                    # Mark as failed so we don't try again (scheduler will commit)
+                    self.monitor.domain_check_failed = True
+                    self.monitor.last_domain_check = datetime.now(timezone.utc)
+                else:
+                    # Combine domain and DNS info into domain_check for deduplication
+                    domain_check_data = {
+                        "domain": parsed_url.hostname,
+                    }
 
-                # Get DNS info
-                dns_info = self._get_dns_info(parsed_url.hostname)
-                additional_data["dns_info"] = dns_info
+                    # Get domain registration info
+                    domain_info = self._get_domain_info(parsed_url.hostname)
+                    if "error" not in domain_info:
+                        domain_check_data.update(domain_info)
+                    else:
+                        # Mark as failed so we don't try again (scheduler will commit)
+                        self.monitor.domain_check_failed = True
+                        self.monitor.last_domain_check = datetime.now(timezone.utc)
+                        # Still try to get DNS info
+
+                    # Get DNS info
+                    dns_info = self._get_dns_info(parsed_url.hostname)
+                    if "error" not in dns_info:
+                        domain_check_data["dns_records"] = dns_info
+
+                    additional_data["domain_check"] = domain_check_data
+
+                    # Update timestamp (scheduler will commit)
+                    self.monitor.last_domain_check = datetime.now(timezone.utc)
 
             # Check SSL certificate if HTTPS
+            # Only collect if needed (first check or >24h old)
             if (
                 url.startswith("https://")
                 and self.monitor.check_cert_expiration
                 and parsed_url.hostname
+                and self._should_collect_tls_data()
             ):
                 cert_info = self._check_ssl_certificate(
                     parsed_url.hostname, parsed_url.port or 443
                 )
-                additional_data["ssl_info"] = cert_info
+                # Add domain to cert info for deduplication
+                cert_info["domain"] = parsed_url.hostname
+                additional_data["cert_info"] = cert_info
+
+                # Update timestamp (scheduler will commit)
+                self.monitor.last_tls_check = datetime.now(timezone.utc)
 
                 # Check certificate expiration
                 if (
@@ -455,10 +594,13 @@ class HTTPChecker(MonitorChecker):
                             "days_to_expiration": 0,
                         }
 
+                    # Parse SSL cert date (format: "Jan 9 12:31:51 2026 GMT")
+                    # Remove timezone suffix as strptime %Z is unreliable
+                    expire_date_clean = expire_date_str.rsplit(" ", 1)[0]
                     expire_date = datetime.strptime(
-                        expire_date_str, "%b %d %H:%M:%S %Y %Z"
+                        expire_date_clean, "%b %d %H:%M:%S %Y"
                     )
-                    # Make expire_date timezone-aware (assuming UTC for SSL cert dates)
+                    # SSL certs are always in UTC/GMT
                     expire_date = expire_date.replace(tzinfo=timezone.utc)
                     days_to_expiration = (expire_date - datetime.now(timezone.utc)).days
 
@@ -539,12 +681,28 @@ class TCPChecker(MonitorChecker):
             additional_data = {}
 
             # Get DNS info for TCP targets if it's a hostname
+            # Only collect if needed (first check or >24h old)
             if (
                 self.monitor.check_domain
-                and not self.monitor.target.replace(".", "").replace("-", "").isdigit()
+                and not self._is_ip_address(self.monitor.target)
+                and self._should_collect_domain_data()
             ):
                 dns_info = self._get_dns_info(self.monitor.target)
-                additional_data["dns_info"] = dns_info
+                # Store as domain_check for deduplication
+                domain_check_data = {
+                    "domain": self.monitor.target,
+                    "ip_address": self.monitor.target,
+                }
+                if "error" not in dns_info:
+                    domain_check_data["dns_records"] = dns_info
+                    additional_data["domain_check"] = domain_check_data
+
+                    # Update timestamp (scheduler will commit)
+                    self.monitor.last_domain_check = datetime.now(timezone.utc)
+                else:
+                    # Mark as failed so we don't try again (scheduler will commit)
+                    self.monitor.domain_check_failed = True
+                    self.monitor.last_domain_check = datetime.now(timezone.utc)
 
             if exit_code == 0:
                 return CheckResultData(
@@ -579,13 +737,45 @@ class PingChecker(MonitorChecker):
         try:
             additional_data = {}
 
-            # Get DNS info for ping targets if it's a hostname
+            # Get DNS and domain info for ping targets if it's a hostname
+            # Only collect if needed (first check or >24h old)
             if (
                 self.monitor.check_domain
-                and not self.monitor.target.replace(".", "").replace("-", "").isdigit()
+                and not self._is_ip_address(self.monitor.target)
+                and self._should_collect_domain_data()
             ):
+                # Combine domain and DNS info into domain_check for deduplication
+                domain_check_data = {
+                    "domain": self.monitor.target,
+                    "ip_address": self.monitor.target,
+                }
+
                 dns_info = self._get_dns_info(self.monitor.target)
-                additional_data["dns_info"] = dns_info
+                if "error" not in dns_info:
+                    domain_check_data["dns_records"] = dns_info
+
+                # Get domain registration info
+                domain_info = self._get_domain_info(self.monitor.target)
+                if "error" not in domain_info:
+                    domain_check_data.update(domain_info)
+                else:
+                    # Mark as failed so we don't try again (scheduler will commit)
+                    self.monitor.domain_check_failed = True
+                    self.monitor.last_domain_check = datetime.now(timezone.utc)
+
+                additional_data["domain_check"] = domain_check_data
+
+                # Update timestamp (scheduler will commit)
+                self.monitor.last_domain_check = datetime.now(timezone.utc)
+            elif (
+                self.monitor.check_domain
+                and self._is_ip_address(self.monitor.target)
+                and not self.monitor.domain_check_failed
+            ):
+                # For IP addresses, mark as failed on first check (scheduler will commit)
+                self.monitor.domain_check_failed = True
+                self.monitor.last_domain_check = datetime.now(timezone.utc)
+            # If check_domain is False, don't add any domain info data
 
             response_time = ping3.ping(
                 self.monitor.target, timeout=self.monitor.timeout
@@ -626,7 +816,7 @@ class KafkaChecker(MonitorChecker):
 
             def test_kafka_connection():
                 from kafka import KafkaProducer as KafkaProducerClass
-                
+
                 additional_data: Dict[str, Any] = {}
 
                 # Test basic connectivity
@@ -657,9 +847,18 @@ class KafkaChecker(MonitorChecker):
                     additional_data["metadata_error"] = str(e)
 
                 # Check SSL certificate if using SSL
-                if self.monitor.kafka_security_protocol in ["SSL", "SASL_SSL"]:
+                # Only collect if needed (first check or >24h old)
+                if (
+                    self.monitor.kafka_security_protocol in ["SSL", "SASL_SSL"]
+                    and self._should_collect_tls_data()
+                ):
                     cert_info = self._check_kafka_ssl_certificate(bootstrap_servers[0])
-                    additional_data["ssl_info"] = cert_info
+                    # Add domain to cert info for deduplication
+                    cert_info["domain"] = bootstrap_servers[0]
+                    additional_data["cert_info"] = cert_info
+
+                    # Update timestamp (scheduler will commit)
+                    self.monitor.last_tls_check = datetime.now(timezone.utc)
 
                 # Read message if requested
                 if self.monitor.kafka_read_message and self.monitor.kafka_topic:
@@ -786,7 +985,7 @@ class KafkaChecker(MonitorChecker):
         """Read the latest message from the configured topic."""
         try:
             from kafka import KafkaConsumer as KafkaConsumerClass
-            
+
             consumer_config = {
                 k: v for k, v in kafka_config.items() if k != "value_serializer"
             }
@@ -824,7 +1023,7 @@ class KafkaChecker(MonitorChecker):
         """Write a test message to the configured topic."""
         try:
             from kafka import KafkaProducer as KafkaProducerClass
-            
+
             producer = KafkaProducerClass(**kafka_config)
 
             # Parse the message payload
@@ -879,9 +1078,13 @@ class KafkaChecker(MonitorChecker):
                             "days_to_expiration": 0,
                         }
 
+                    # Parse SSL cert date (format: "Jan 9 12:31:51 2026 GMT")
+                    # Remove timezone suffix as strptime %Z is unreliable
+                    expire_date_clean = expire_date_str.rsplit(" ", 1)[0]
                     expire_date = datetime.strptime(
-                        expire_date_str, "%b %d %H:%M:%S %Y %Z"
+                        expire_date_clean, "%b %d %H:%M:%S %Y"
                     )
+                    # SSL certs are always in UTC/GMT
                     expire_date = expire_date.replace(tzinfo=timezone.utc)
                     days_to_expiration = (expire_date - datetime.now(timezone.utc)).days
 

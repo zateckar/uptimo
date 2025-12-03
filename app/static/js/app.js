@@ -132,14 +132,9 @@ document.addEventListener("DOMContentLoaded", function() {
     // Auto-select monitor (last viewed or first available)
     autoSelectMonitor();
     
-  
-    // Initialize SSL/Domain/DNS dashboard
-    SSLDomainManager.initialize();
-    
     // Expose managers to window for debugging
     window.SSEManager = SSEManager;
     window.ThemeManager = ThemeManager;
-    window.SSLDomainManager = SSLDomainManager;
     window.MonitorSelectionManager = MonitorSelectionManager;
 });
 

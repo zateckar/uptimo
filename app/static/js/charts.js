@@ -38,7 +38,7 @@ const HeartbeatManager = {
             return `<div class="beat beat-detail ${statusClass}" title="${tooltip}"></div>`;
         }).join('');
         
-        container.innerHTML = `<div class="heartbeat-container">${html}</div>`;
+        container.innerHTML = `<div class="heartbeat-container">${html} <span class="text-xsmall text-muted"> now</span></div>`;
     },
     
     // Update sidebar heartbeat for single monitor
@@ -116,7 +116,6 @@ const ChartManager = {
     updateResponseTimeChart: function(checks, timespan = '24h') {
         const canvas = document.getElementById('responseTimeChart');
         if (!canvas) {
-            console.warn('Response time chart canvas not found');
             return;
         }
         
@@ -147,7 +146,9 @@ const ChartManager = {
         // Create properly spaced data for linear timescale
         // We pass all filtered checks to createLinearTimescaleData which will handle
         // downsampling by bucketing data into time intervals
-        const chartData = this.createLinearTimescaleData(filteredChecks, timespan);
+        // Get monitor interval for adaptive bucketing
+        const monitorInterval = this.getMonitorInterval();
+        const chartData = this.createLinearTimescaleData(filteredChecks, timespan, monitorInterval);
         
         const labels = chartData.labels;
         const data = chartData.values;
@@ -339,6 +340,7 @@ const ChartManager = {
         try {
             switch (timespan) {
                 case "1h":
+                    // Show time only for 1h view
                     return date.toLocaleTimeString('en-US', {
                         timeZone: timezone,
                         hour: "2-digit",
@@ -346,6 +348,7 @@ const ChartManager = {
                         hour12: false
                     });
                 case "6h":
+                    // Show time with hour markers for 6h view
                     return date.toLocaleTimeString('en-US', {
                         timeZone: timezone,
                         hour: "2-digit",
@@ -353,13 +356,17 @@ const ChartManager = {
                         hour12: false
                     });
                 case "24h":
-                    return date.toLocaleTimeString('en-US', {
+                    // Show time + date for 24h view
+                    return date.toLocaleString('en-US', {
                         timeZone: timezone,
+                        month: "short",
+                        day: "numeric",
                         hour: "2-digit",
                         minute: "2-digit",
                         hour12: false
                     });
                 case "7d":
+                    // Show date + time for 7d view
                     return date.toLocaleDateString('en-US', {
                         timeZone: timezone,
                         month: "short",
@@ -368,6 +375,7 @@ const ChartManager = {
                         hour12: false
                     });
                 case "30d":
+                    // Show date only for 30d view
                     return date.toLocaleDateString('en-US', {
                         timeZone: timezone,
                         month: "short",
@@ -401,77 +409,232 @@ const ChartManager = {
         }
     },
     
-    // Create linear timescale data with proper gap handling
-    createLinearTimescaleData: function(checks, timespan) {
+    // Get monitor check interval from DOM or cache
+    getMonitorInterval: function() {
+        // Try to get from selected monitor element (by ID)
+        if (Uptimo.state.selectedMonitorId) {
+            const selectedMonitor = document.querySelector(`[data-monitor-id="${Uptimo.state.selectedMonitorId}"]`);
+            if (selectedMonitor) {
+                const interval = selectedMonitor.dataset.checkInterval;
+                if (interval) {
+                    // Handle enum strings like "CheckInterval.THIRTY_SECONDS"
+                    let intervalSeconds;
+                    if (typeof interval === 'string' && interval.includes('THIRTY_SECONDS')) {
+                        intervalSeconds = 30;
+                    } else if (typeof interval === 'string' && interval.includes('ONE_MINUTE')) {
+                        intervalSeconds = 60;
+                    } else if (typeof interval === 'string' && interval.includes('FIVE_MINUTES')) {
+                        intervalSeconds = 300;
+                    } else {
+                        // Try to parse as number
+                        intervalSeconds = parseInt(interval);
+                    }
+                    
+                    const intervalMs = intervalSeconds * 1000;
+                    if (!isNaN(intervalMs) && intervalMs > 0) {
+                        return intervalMs;
+                    }
+                }
+            }
+        }
+        
+        // Try to get from global state
+        if (Uptimo.state.selectedMonitorId && Uptimo.state.monitorData) {
+            const monitor = Uptimo.state.monitorData[Uptimo.state.selectedMonitorId];
+            if (monitor && monitor.check_interval) {
+                const intervalMs = monitor.check_interval * 1000;
+                if (!isNaN(intervalMs)) {
+                    return intervalMs;
+                }
+            }
+        }
+        
+        // Default to 5 minutes (300 seconds)
+        return 5 * 60 * 1000;
+    },
+    
+    // Get optimal time interval based on monitor frequency and timespan
+    getOptimalTimeInterval: function(monitorIntervalMs, timespan) {
+        const timespanHours = {
+            '1h': 1,
+            '6h': 6,
+            '24h': 24,
+            '7d': 168,
+            '30d': 720
+        }[timespan];
+        
+        // For shorter timespans, use smaller intervals to show more detail
+        let maxDataPoints;
+        if (timespanHours <= 1) {
+            maxDataPoints = 60;  // 1-minute intervals for 1h
+        } else if (timespanHours <= 6) {
+            maxDataPoints = 72;  // 5-minute intervals for 6h
+        } else if (timespanHours <= 24) {
+            maxDataPoints = 96;  // 15-minute intervals for 24h
+        } else if (timespanHours <= 168) {
+            maxDataPoints = 168; // 1-hour intervals for 7d
+        } else {
+            maxDataPoints = 180; // 4-hour intervals for 30d
+        }
+        
+        const timespanMs = timespanHours * 60 * 60 * 1000;
+        const optimalIntervalMs = Math.ceil(timespanMs / maxDataPoints);
+        
+        // Ensure we don't use intervals smaller than the monitor check interval
+        const finalIntervalMs = Math.max(optimalIntervalMs, monitorIntervalMs);
+        
+        return finalIntervalMs;
+    },
+    
+    // Create time buckets for the given timespan
+    createTimeBuckets: function(startTime, endTime, timeIntervalMs) {
+        const buckets = [];
+        const bucketCount = Math.ceil((endTime.getTime() - startTime.getTime()) / timeIntervalMs);
+        
+        // Limit bucket count to reasonable maximum
+        const maxBuckets = 100;
+        const actualIntervalMs = Math.max(timeIntervalMs, (endTime.getTime() - startTime.getTime()) / maxBuckets);
+        
+        for (let time = startTime.getTime(); time < endTime.getTime(); time += actualIntervalMs) {
+            buckets.push({
+                start: new Date(time),
+                end: new Date(Math.min(time + actualIntervalMs, endTime.getTime())),
+                assignedCheck: null
+            });
+        }
+        
+        return buckets;
+    },
+    
+    // Assign checks to buckets with one-to-one mapping
+    assignChecksToBuckets: function(sortedChecks, buckets) {
+        let checkIndex = 0;
+        
+        for (let bucketIndex = 0; bucketIndex < buckets.length && checkIndex < sortedChecks.length; bucketIndex++) {
+            const bucket = buckets[bucketIndex];
+            let bestCheck = null;
+            let bestDistance = Infinity;
+            let bestCheckIndex = -1;
+            
+            // Find the best check for this bucket
+            for (let i = checkIndex; i < sortedChecks.length; i++) {
+                const check = sortedChecks[i];
+                const checkTime = new Date(check.timestamp);
+                
+                // Skip checks before this bucket
+                if (checkTime < bucket.start) continue;
+                
+                // Skip checks after this bucket - we'll use them for next buckets
+                if (checkTime >= bucket.end) break;
+                
+                // Calculate distance from bucket center
+                const bucketCenter = new Date(
+                    (bucket.start.getTime() + bucket.end.getTime()) / 2
+                );
+                const distance = Math.abs(checkTime - bucketCenter);
+                
+                // Track best match
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestCheck = check;
+                    bestCheckIndex = i;
+                }
+            }
+            
+            // Assign best check to this bucket
+            if (bestCheck) {
+                bucket.assignedCheck = bestCheck;
+                // Move check index forward to avoid reusing the same check
+                checkIndex = bestCheckIndex + 1;
+            }
+        }
+    },
+    
+    // Convert buckets to chart data format
+    bucketsToChartData: function(buckets, timespan) {
+        const labels = [];
+        const values = [];
+        const statuses = [];
+        
+        buckets.forEach(bucket => {
+            labels.push(this.formatLabelForTimespan(
+                bucket.start.toISOString(),
+                timespan
+            ));
+            
+            if (bucket.assignedCheck) {
+                values.push(bucket.assignedCheck.response_time);
+                statuses.push(bucket.assignedCheck.status);
+            } else {
+                values.push(null);
+                statuses.push(null);
+            }
+        });
+        
+        return { labels, values, statuses };
+    },
+    
+    // Create linear timescale data with adaptive bucketing (FIXED VERSION)
+    createLinearTimescaleData: function(checks, timespan, monitorIntervalMs = 5 * 60 * 1000) {
         if (!checks || checks.length === 0) {
             return { labels: [], values: [], statuses: [] };
         }
         
         const now = new Date();
-        let startTime;
-        let timeInterval;
+        const timespanHours = {
+            '1h': 1,
+            '6h': 6,
+            '24h': 24,
+            '7d': 168,
+            '30d': 720
+        }[timespan];
         
-        // Determine time interval and start time based on timespan
-        switch (timespan) {
-            case "1h":
-                startTime = new Date(now.getTime() - 60 * 60 * 1000);
-                timeInterval = 60 * 1000; // 1 minute
-                break;
-            case "6h":
-                startTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-                timeInterval = 5 * 60 * 1000; // 5 minutes
-                break;
-            case "24h":
-                startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-                timeInterval = 15 * 60 * 1000; // 15 minutes
-                break;
-            case "7d":
-                startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                timeInterval = 2 * 60 * 60 * 1000; // 2 hours
-                break;
-            case "30d":
-                startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                timeInterval = 6 * 60 * 60 * 1000; // 6 hours
-                break;
-            default:
-                startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-                timeInterval = 15 * 60 * 1000; // 15 minutes
+        const startTime = new Date(now.getTime() - timespanHours * 60 * 60 * 1000);
+        const timeIntervalMs = this.getOptimalTimeInterval(monitorIntervalMs, timespan);
+        
+        // Sort checks by timestamp to ensure ordered processing
+        const sortedChecks = [...checks].sort((a, b) =>
+            new Date(a.timestamp) - new Date(b.timestamp)
+        );
+        
+        // Create time buckets
+        const buckets = this.createTimeBuckets(startTime, now, timeIntervalMs);
+        
+        // Assign checks to buckets - one check per bucket maximum
+        this.assignChecksToBuckets(sortedChecks, buckets);
+        
+        // Convert buckets to chart data
+        const result = this.bucketsToChartData(buckets, timespan);
+        
+        // Fallback: if no data was assigned, use simple direct mapping
+        if (result.values.filter(v => v !== null).length === 0 && sortedChecks.length > 0) {
+            return this.createSimpleChartData(sortedChecks, timespan);
+        }
+        
+        return result;
+    },
+    
+    // Simple fallback: direct mapping of checks to chart data
+    createSimpleChartData: function(checks, timespan) {
+        
+        const maxDataPoints = this.getMaxDataPointsForTimespan(timespan);
+        
+        // If we have too many checks, sample them evenly
+        let sampledChecks = checks;
+        if (checks.length > maxDataPoints) {
+            const step = Math.ceil(checks.length / maxDataPoints);
+            sampledChecks = checks.filter((_, index) => index % step === 0);
         }
         
         const labels = [];
         const values = [];
         const statuses = [];
         
-        // Create a map of timestamps to check data for quick lookup
-        const checkMap = new Map();
-        checks.forEach(check => {
-            const checkTime = new Date(check.timestamp);
-            checkMap.set(checkTime.getTime(), {
-                response_time: check.response_time,
-                status: check.status
-            });
+        sampledChecks.forEach(check => {
+            labels.push(this.formatLabelForTimespan(check.timestamp, timespan));
+            values.push(check.response_time);
+            statuses.push(check.status);
         });
-        
-        // Generate linear timeline with actual data points and null for gaps
-        for (let currentTime = startTime.getTime(); currentTime <= now.getTime(); currentTime += timeInterval) {
-            const currentDate = new Date(currentTime);
-            
-            // Find the closest check within the time interval
-            let closestCheck = null;
-            let minTimeDiff = timeInterval; // Only accept checks within the interval
-            
-            checkMap.forEach((checkData, checkTimestamp) => {
-                const timeDiff = Math.abs(checkTimestamp - currentTime);
-                if (timeDiff <= minTimeDiff && checkData.response_time !== null) {
-                    closestCheck = checkData;
-                    minTimeDiff = timeDiff;
-                }
-            });
-            
-            labels.push(this.formatLabelForTimespan(currentDate.toISOString(), timespan));
-            values.push(closestCheck ? closestCheck.response_time : null);
-            statuses.push(closestCheck ? closestCheck.status : null);
-        }
         
         return { labels, values, statuses };
     }

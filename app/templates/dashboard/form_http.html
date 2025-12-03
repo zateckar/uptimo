@@ -183,6 +183,126 @@
                         </div>
                         
                         {% if monitor %}
+                        <!-- Notification Settings (only in edit mode) -->
+                        <div class="form-section">
+                            <h6 class="fw-bold text-uppercase text-success small mb-4 ls-1">
+                                <i class="bi bi-bell me-1"></i>Notification Settings
+                            </h6>
+                            
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <div class="card border-success">
+                                        <div class="card-header bg-light py-2">
+                                            <small class="fw-semibold text-success">
+                                                <i class="bi bi-info-circle"></i> Configure notification channels for this monitor
+                                            </small>
+                                        </div>
+                                        <div class="card-body">
+                                            {% if available_channels %}
+                                                <div class="row g-3">
+                                                    <div class="col-md-12">
+                                                        <label class="form-label">Notification Channels</label>
+                                                        <div class="row">
+                                                            {% for channel in available_channels %}
+                                                                <div class="col-md-6 mb-2">
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input" type="checkbox" 
+                                                                               name="channel_ids" 
+                                                                               value="{{ channel.id }}"
+                                                                               id="channel_{{ channel.id }}"
+                                                                               {% if notification_form.channel_ids.data and channel.id|string in notification_form.channel_ids.data %}checked{% endif %}>
+                                                                        <label class="form-check-label" for="channel_{{ channel.id }}">
+                                                                            <span class="badge bg-{{ 'primary' if channel.type.value == 'email' else 'info' if channel.type.value == 'telegram' else 'success' }}">
+                                                                                <i class="bi bi-{{ 'envelope' if channel.type.value == 'email' else 'telegram' if channel.type.value == 'telegram' else 'slack' }}"></i>
+                                                                                {{ channel.type.value.upper() }}
+                                                                            </span>
+                                                                            {{ channel.name }}
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="col-md-6">
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input" type="checkbox" 
+                                                                   name="notify_on_down" 
+                                                                   id="notify_on_down"
+                                                                   {% if notification_form.notify_on_down.data %}checked{% endif %}>
+                                                            <label class="form-check-label" for="notify_on_down">
+                                                                <i class="bi bi-arrow-down-circle text-danger"></i> Notify when DOWN
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-text">Send alert when monitor fails</div>
+                                                    </div>
+                                                    
+                                                    <div class="col-md-6">
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input" type="checkbox" 
+                                                                   name="notify_on_up" 
+                                                                   id="notify_on_up"
+                                                                   {% if notification_form.notify_on_up.data %}checked{% endif %}>
+                                                            <label class="form-check-label" for="notify_on_up">
+                                                                <i class="bi bi-arrow-up-circle text-success"></i> Notify when UP
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-text">Send recovery notification</div>
+                                                    </div>
+                                                    
+                                                    <div class="col-md-6">
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input" type="checkbox" 
+                                                                   name="notify_on_ssl_warning" 
+                                                                   id="notify_on_ssl_warning"
+                                                                   {% if notification_form.notify_on_ssl_warning.data %}checked{% endif %}>
+                                                            <label class="form-check-label" for="notify_on_ssl_warning">
+                                                                <i class="bi bi-shield-exclamation text-warning"></i> SSL warnings
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">Consecutive failures</label>
+                                                        <input class="form-control" type="number" 
+                                                               name="consecutive_checks_threshold" 
+                                                               value="{{ notification_form.consecutive_checks_threshold.data or 1 }}"
+                                                               min="1" max="10">
+                                                        <div class="form-text">Min failures before alert</div>
+                                                    </div>
+                                                    
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">Escalate after (min)</label>
+                                                        <input class="form-control" type="number" 
+                                                               name="escalate_after_minutes" 
+                                                               value="{{ notification_form.escalate_after_minutes.data or '' }}"
+                                                               min="1" placeholder="Optional">
+                                                        <div class="form-text">Re-alert after X minutes</div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mt-3">
+                                                    <button type="submit" name="form_type" value="notifications" 
+                                                            class="btn btn-success btn-sm">
+                                                        <i class="bi bi-bell"></i> Save Notification Settings
+                                                    </button>
+                                                </div>
+                                            {% else %}
+                                                <div class="text-center py-3">
+                                                    <i class="bi bi-bell-slash text-muted icon-2xl"></i>
+                                                    <p class="text-muted mb-2">No notification channels configured</p>
+                                                    <a href="{{ url_for('notifications.create_channel') }}" 
+                                                       class="btn btn-outline-primary btn-sm">
+                                                        <i class="bi bi-plus-circle"></i> Create Channel
+                                                    </a>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Delete and Clone Buttons (only in edit mode) -->
                         <div class="d-flex justify-content-between gap-2 pt-3 border-top">
                             <div class="d-flex gap-2">
@@ -198,9 +318,6 @@
                                 {{ form.submit(class="btn btn-primary px-4", value="Update Monitor") }}
                             </div>
                         </div>
-                        
-                        <form id="deleteForm" method="POST" action="{{ url_for('dashboard.delete', id=monitor.id) }}" class="d-none"></form>
-                        <form id="cloneForm" method="POST" action="{{ url_for('dashboard.clone', id=monitor.id) }}" class="d-none"></form>
                         {% else %}
                         <!-- Create Form Actions -->
                         <div class="d-flex justify-content-end gap-2 pt-3 border-top">
@@ -209,6 +326,16 @@
                         </div>
                         {% endif %}
                     </form>
+                    
+                    {% if monitor %}
+                    <!-- Delete and Clone Forms (outside main form to avoid nesting) -->
+                    <form id="deleteForm" method="POST" action="{{ url_for('dashboard.delete', id=monitor.id) }}" class="d-none">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    </form>
+                    <form id="cloneForm" method="POST" action="{{ url_for('dashboard.clone', id=monitor.id) }}" class="d-none">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    </form>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -217,5 +344,6 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/feedback.js') }}"></script>
 <script src="{{ url_for('static', filename='js/form-handler.js') }}"></script>
 {% endblock %}

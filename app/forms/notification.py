@@ -8,7 +8,6 @@ from wtforms import (
     BooleanField,
     IntegerField,
     SubmitField,
-    PasswordField,
     URLField,
 )
 from wtforms.validators import (
@@ -47,29 +46,7 @@ class NotificationChannelForm(FlaskForm):
 
     is_active = BooleanField("Active Channel", default=True)
 
-    # Email Configuration
-    smtp_server = StringField(
-        "SMTP Server",
-        validators=[Optional(), Length(max=255)],
-        description="SMTP server hostname (e.g., smtp.gmail.com)",
-    )
-    smtp_port = IntegerField(
-        "SMTP Port",
-        validators=[Optional(), NumberRange(min=1, max=65535)],
-        default=587,
-        description="SMTP server port (usually 587 for TLS, 465 for SSL)",
-    )
-    use_tls = BooleanField("Use TLS", default=True, description="Use TLS encryption")
-    smtp_username = StringField(
-        "SMTP Username",
-        validators=[Optional(), Length(max=255)],
-        description="SMTP username (often your email)",
-    )
-    smtp_password = PasswordField(
-        "SMTP Password",
-        validators=[Optional()],
-        description="SMTP password or app password",
-    )
+    # Email Configuration (SendGrid Only)
     from_email = StringField(
         "From Email",
         validators=[
@@ -77,12 +54,12 @@ class NotificationChannelForm(FlaskForm):
             Email(message="Please enter a valid email address"),
             Length(max=255),
         ],
-        description="Sender email address",
+        description="Sender email address (optional, uses default if not provided)",
     )
     to_email = StringField(
         "Recipient Email",
         validators=[
-            Optional(),
+            DataRequired(message="Recipient email is required"),
             Email(message="Please enter a valid email address"),
             Length(max=255),
         ],
@@ -173,19 +150,8 @@ class NotificationChannelForm(FlaskForm):
         config = {}
 
         if self.type.data == NotificationType.EMAIL.value:
-            # Get existing config to preserve password if not changed
-            existing_config = {}
-            if hasattr(self, "obj") and self.obj:
-                existing_config = self.obj.get_config()
-
             config.update(
                 {
-                    "smtp_server": self.smtp_server.data,
-                    "smtp_port": self.smtp_port.data,
-                    "use_tls": self.use_tls.data,
-                    "username": self.smtp_username.data,
-                    "password": self.smtp_password.data
-                    or existing_config.get("password"),
                     "from_email": self.from_email.data,
                     "to_email": self.to_email.data,
                 }
@@ -219,13 +185,8 @@ class NotificationChannelForm(FlaskForm):
             return
 
         if self.type.data == NotificationType.EMAIL.value:
-            self.smtp_server.data = config.get("smtp_server")
-            self.smtp_port.data = config.get("smtp_port", 587)
-            self.use_tls.data = config.get("use_tls", True)
-            self.smtp_username.data = config.get("username")
             self.from_email.data = config.get("from_email")
             self.to_email.data = config.get("to_email")
-            # Don't set password from config for security
         elif self.type.data == NotificationType.TELEGRAM.value:
             self.bot_token.data = config.get("bot_token")
             self.chat_id.data = config.get("chat_id")

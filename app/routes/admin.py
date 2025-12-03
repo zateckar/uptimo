@@ -179,16 +179,59 @@ def settings() -> Any:
     # Get current settings
     app_settings = AppSettings.get_settings()
 
-    # Get database information
-    db_path = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
-    if db_path.startswith("sqlite:///"):
-        db_file_path = db_path.replace("sqlite:///", "")
-    else:
-        db_file_path = None
-
+    # Get database information - use more direct approach
     db_size = 0
-    if db_file_path and os.path.exists(db_file_path):
-        db_size = os.path.getsize(db_file_path)
+    db_file_path = None
+
+    try:
+        # Try to get the database file path from SQLAlchemy engine
+        engine = db.engine
+        if engine and hasattr(engine, "url") and engine.url.drivername == "sqlite":
+            # Get the actual database path from SQLAlchemy
+            db_file_path = engine.url.database
+            if db_file_path and os.path.exists(db_file_path):
+                db_size = os.path.getsize(db_file_path)
+    except Exception:
+        # Fallback to manual URI parsing if SQLAlchemy method fails
+        db_uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
+        if db_uri.startswith("sqlite:///"):
+            from pathlib import Path
+            from urllib.parse import urlparse
+
+            try:
+                # Parse the URI properly for cross-platform compatibility
+                parsed = urlparse(db_uri)
+                db_file_path = parsed.path
+
+                # Remove leading slash for Windows absolute paths
+                if os.name == "nt" and db_file_path and db_file_path.startswith("/"):
+                    db_file_path = db_file_path[1:]
+
+                # Convert to absolute path if relative (works for both dev and prod)
+                if db_file_path and not os.path.isabs(db_file_path):
+                    # Use Flask's application root for better production compatibility
+                    BASE_DIR = Path(current_app.root_path)
+                    db_file_path = BASE_DIR / db_file_path
+
+                if os.path.exists(str(db_file_path)):
+                    db_size = os.path.getsize(str(db_file_path))
+            except (OSError, ValueError):
+                # Final fallback: try common production database locations
+                common_paths = [
+                    # Environment variable override
+                    os.environ.get("UPTIMO_DB_PATH"),
+                    # Flask instance folder
+                    Path(current_app.instance_path) / "uptimo.db",
+                    # Standard locations relative to app root
+                    Path(current_app.root_path) / "instance" / "uptimo.db",
+                    Path(current_app.root_path) / "uptimo.db",
+                ]
+
+                for path in common_paths:
+                    if path and os.path.exists(str(path)):
+                        db_size = os.path.getsize(str(path))
+                        db_file_path = str(path)
+                        break
 
     # Format database size
     db_size_formatted = format_file_size(db_size)

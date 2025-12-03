@@ -109,6 +109,13 @@ class Monitor(db.Model):
         db.Integer, default=0
     )  # Track consecutive DOWN checks
 
+    # Timestamps for TLS/DNS/domain data collection (to avoid collecting on every check)
+    last_tls_check = db.Column(db.DateTime)  # Last TLS certificate check
+    last_domain_check = db.Column(db.DateTime)  # Last domain registration check
+    domain_check_failed = db.Column(
+        db.Boolean, default=False
+    )  # Mark if domain lookup failed (for IPs)
+
     created_at = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
@@ -135,8 +142,31 @@ class Monitor(db.Model):
 
     # Indexes for performance
     __table_args__ = (
+        # Existing indexes
         db.Index("idx_monitor_user_active", "user_id", "is_active"),
         db.Index("idx_monitor_type_active", "type", "is_active"),
+        # Enhanced composite indexes for dashboard performance
+        db.Index(
+            "idx_monitor_user_active_updated", "user_id", "is_active", "updated_at"
+        ),
+        db.Index("idx_monitor_user_name", "user_id", "name"),
+        db.Index("idx_monitor_active_status", "is_active", "last_status", "last_check"),
+        db.Index("idx_monitor_user_type_active", "user_id", "type", "is_active"),
+        # Performance indexes for specific filter combinations
+        db.Index("idx_monitor_status_check_time", "last_status", "last_check"),
+        db.Index(
+            "idx_monitor_consecutive_failures", "consecutive_failures", "is_active"
+        ),
+        # CRITICAL PERFORMANCE INDEXES - High impact, low overhead
+        # Dashboard loading optimization - Most critical query
+        # Note: SQLite doesn't support DESC in index definition, handled in query ordering
+        db.Index(
+            "idx_monitor_dashboard_primary",
+            "user_id",
+            "is_active",
+            "last_check",
+            "name",
+        ),
     )
 
     def __init__(
@@ -272,15 +302,31 @@ class Monitor(db.Model):
     def get_recent_checks(self, count: int = 10) -> List[CheckResult]:
         """Get most recent check results."""
         from sqlalchemy import desc
+
         query = self.check_results.order_by(desc(CheckResult.timestamp))  # type: ignore
         return query.limit(count).all()  # type: ignore
 
     def get_checks_by_timespan(self, hours: int) -> List[CheckResult]:
-        """Get check results for the specified timespan in hours."""
+        """Get check results for the specified timespan in hours.
+
+        Uses intelligent limiting based on expected check frequency
+        to prevent excessive memory usage for long timespans.
+        """
         start_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+        # Calculate intelligent limit based on minimum check interval (30 seconds)
+        # Maximum theoretical checks = (hours * 3600) / minimum_interval
+        minimum_interval = 30  # seconds - fastest possible check interval
+        max_theoretical_checks = (hours * 3600) // minimum_interval
+
+        # Cap at reasonable maximum to prevent memory issues
+        # Also ensures we don't exceed what the frontend can reasonably display
+        intelligent_limit = min(max_theoretical_checks, 2000)
+
         return (
             self.check_results.filter(CheckResult.timestamp >= start_time)
             .order_by(CheckResult.timestamp.desc())
+            .limit(intelligent_limit)
             .all()
         )
 
@@ -342,6 +388,7 @@ class Monitor(db.Model):
         additional_data: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Update monitor status after a check."""
+
         previous_status = self.last_status
 
         self.last_check = datetime.now(timezone.utc)
@@ -361,17 +408,19 @@ class Monitor(db.Model):
         else:
             self.consecutive_failures = 0
 
-        # Create check result record
+        # Create check result record with deduplication
         check_result = CheckResult(
             monitor_id=self.id,
             timestamp=datetime.now(timezone.utc),
             status=status,
             response_time=response_time,
             status_code=status_code,
-            error_message=error_message,
         )
 
-        # Set additional data if provided
+        # Use deduplication for error message and additional data
+        if error_message:
+            check_result.set_error_message(error_message)
+
         if additional_data:
             check_result.set_additional_data(additional_data)
 
@@ -397,6 +446,7 @@ class Monitor(db.Model):
         ):
             # Get the latest check result to extract error message
             from sqlalchemy import desc
+
             query = self.check_results.order_by(desc(CheckResult.timestamp))  # type: ignore
             latest_check = query.first()  # type: ignore
 
@@ -491,6 +541,7 @@ class Monitor(db.Model):
             "uptime_24h": self.get_uptime_percentage(1),
             "uptime_7d": self.get_uptime_percentage(7),
             "uptime_30d": self.get_uptime_percentage(30),
+            "uptime_1y": self.get_uptime_percentage(365),
             "avg_response_time_24h": self.get_average_response_time(24),
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -503,6 +554,7 @@ class Monitor(db.Model):
 
         if include_incidents:
             from sqlalchemy import desc
+
             query = self.incidents.order_by(desc(Incident.started_at))  # type: ignore
             data["incidents"] = [
                 incident.to_dict()

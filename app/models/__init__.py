@@ -10,6 +10,7 @@ from .notification import (
     NotificationType,
 )
 from .app_settings import AppSettings
+from .deduplication import ErrorMessage, TLSCertificate, DomainInfo
 
 __all__ = [
     "User",
@@ -23,4 +24,7 @@ __all__ = [
     "NotificationLog",
     "NotificationType",
     "AppSettings",
+    "ErrorMessage",
+    "TLSCertificate",
+    "DomainInfo",
 ]

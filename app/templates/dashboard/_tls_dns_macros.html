@@ -1,0 +1,420 @@
+{# TLS/DNS/Domain Information Macros #}
+
+{# Macro for TLS Certificate Display #}
+{% macro render_tls_certificate(cert_info, monitor) %}
+{% if cert_info %}
+  {% if cert_info.error %}
+    <div class="text-center text-danger">
+      <i class="bi bi-exclamation-triangle"></i>
+      <p class="mt-2 mb-0">{{ cert_info.error }}</p>
+    </div>
+  {% elif not cert_info.not_after %}
+    <div class="text-center text-danger">
+      <i class="bi bi-exclamation-triangle"></i>
+      <p class="mt-2 mb-0">Certificate missing expiration date (not_after field)</p>
+    </div>
+  {% else %}
+    <div class="ssl-info">
+      {# Subject information #}
+      {% if cert_info.subject %}
+      <div class="mb-2">
+        <strong>Subject:</strong><br>
+        {% if cert_info.subject.commonName %}
+        <small class="text-muted">Common Name:</small> {{ cert_info.subject.commonName }}<br>
+        {% endif %}
+        {% if cert_info.subject.organizationName %}
+        <small class="text-muted">Organization:</small> {{ cert_info.subject.organizationName }}<br>
+        {% endif %}
+        {% if cert_info.subject.organizationalUnitName %}
+        <small class="text-muted">Organizational Unit:</small> {{ cert_info.subject.organizationalUnitName }}<br>
+        {% endif %}
+        {% if cert_info.subject.countryName %}
+        <small class="text-muted">Country:</small> {{ cert_info.subject.countryName }}<br>
+        {% endif %}
+        {% if cert_info.subject.localityName %}
+        <small class="text-muted">Locality:</small> {{ cert_info.subject.localityName }}<br>
+        {% endif %}
+        {% if cert_info.subject.stateOrProvinceName %}
+        <small class="text-muted">State/Province:</small> {{ cert_info.subject.stateOrProvinceName }}<br>
+        {% endif %}
+      </div>
+      {% endif %}
+      
+      {# Issuer information #}
+      {% if cert_info.issuer %}
+      <div class="mb-2">
+        <strong>Issuer:</strong><br>
+        {% if cert_info.issuer.commonName %}
+        <small class="text-muted">Common Name:</small> {{ cert_info.issuer.commonName }}<br>
+        {% endif %}
+        {% if cert_info.issuer.organizationName %}
+        <small class="text-muted">Organization:</small> {{ cert_info.issuer.organizationName }}<br>
+        {% endif %}
+        {% if cert_info.issuer.countryName %}
+        <small class="text-muted">Country:</small> {{ cert_info.issuer.countryName }}<br>
+        {% endif %}
+      </div>
+      {% endif %}
+      
+      {# Validity period #}
+      <div class="mb-2">
+        <strong>Validity Period:</strong><br>
+        {% if cert_info.not_before %}
+        <small class="text-muted">Issued:</small> {{ cert_info.not_before }}<br>
+        {% endif %}
+        {% if cert_info.not_after %}
+        <small class="text-muted">Expires:</small> {{ cert_info.not_after }}<br>
+        {% endif %}
+        {% if cert_info.days_to_expiration is not none %}
+          {% set days = cert_info.days_to_expiration %}
+          {% if days < 0 %}
+            {% set exp_class = 'text-danger' %}
+          {% elif days <= 7 %}
+            {% set exp_class = 'text-warning' %}
+          {% else %}
+            {% set exp_class = 'text-success' %}
+          {% endif %}
+        <small class="text-muted">Days to Expiration:</small> <span class="{{ exp_class }}">{{ days }}</span><br>
+        {% endif %}
+      </div>
+      
+      {# Additional details #}
+      {% if cert_info.version %}
+      <div class="mb-1"><small class="text-muted">Version:</small> {{ cert_info.version }}</div>
+      {% endif %}
+      {% if cert_info.serial_number %}
+      <div class="mb-1"><small class="text-muted">Serial Number:</small> {{ cert_info.serial_number }}</div>
+      {% endif %}
+      {% if cert_info.signature_algorithm %}
+      <div class="mb-1"><small class="text-muted">Signature Algorithm:</small> {{ cert_info.signature_algorithm }}</div>
+      {% endif %}
+      {% if cert_info.public_key_algorithm %}
+      <div class="mb-1"><small class="text-muted">Public Key Algorithm:</small> {{ cert_info.public_key_algorithm }}</div>
+      {% endif %}
+      
+      {# Subject Alternative Names #}
+      {% if cert_info.subject_alt_name and cert_info.subject_alt_name|length > 0 %}
+      <div class="mb-2">
+        <strong>Subject Alternative Names:</strong><br>
+        {% for san in cert_info.subject_alt_name %}
+        <small class="text-muted">•</small> {{ san }}<br>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  {% endif %}
+{% else %}
+  <div class="text-center text-danger">
+    <i class="bi bi-exclamation-triangle"></i>
+    <p class="mt-2 mb-0">No SSL certificate data available</p>
+  </div>
+{% endif %}
+{% endmacro %}
+
+{# Macro for TLS Summary #}
+{% macro render_tls_summary(cert_info) %}
+{% if cert_info and cert_info.not_after and not cert_info.error %}
+  {% set days = cert_info.days_to_expiration|default(0) %}
+  {% if days < 0 %}
+    {% set status = 'EXPIRED' %}
+    {% set status_class = 'bg-danger' %}
+    {% set days_text = 'Expired ' ~ (days|abs) ~ ' days ago' %}
+    {% set days_class = 'text-danger' %}
+  {% elif days <= 7 %}
+    {% set status = 'EXPIRING SOON' %}
+    {% set status_class = 'bg-warning' %}
+    {% set days_text = days ~ ' days' %}
+    {% set days_class = 'text-warning' %}
+  {% else %}
+    {% set status = 'VALID' %}
+    {% set status_class = 'bg-success' %}
+    {% set days_text = days ~ ' days' %}
+    {% set days_class = 'text-success' %}
+  {% endif %}
+{% else %}
+  {% set status = 'ERROR' %}
+  {% set status_class = 'bg-secondary' %}
+  {% set days_text = 'N/A' %}
+  {% set days_class = 'text-muted' %}
+{% endif %}
+<div class="d-flex justify-content-between align-items-center">
+  <div>
+    <small class="text-muted">Status:</small>
+    <span class="badge {{ status_class }} ms-1">{{ status }}</span>
+  </div>
+  <div>
+    <small class="text-muted">Expires in:</small>
+    <strong class="ms-1 {{ days_class }}">{{ days_text }}</strong>
+  </div>
+</div>
+{% endmacro %}
+
+{# Macro for Domain Registration Display #}
+{% macro render_domain_registration(domain_check, monitor) %}
+{% if domain_check %}
+  {% if domain_check.error or not domain_check.domain %}
+    <div class="text-center text-muted">
+      <i class="bi bi-info-circle"></i>
+      <p class="mt-2 mb-0">{{ domain_check.error|default('Domain data incomplete') }}</p>
+    </div>
+  {% else %}
+    <div class="domain-info">
+      {# Basic domain information #}
+      {% if domain_check.domain %}
+      <div class="mb-2"><strong>Domain:</strong> {{ domain_check.domain }}</div>
+      {% endif %}
+      
+      {# Registration information #}
+      {% if domain_check.registrar %}
+      <div class="mb-2"><strong>Registrar:</strong> {{ domain_check.registrar }}</div>
+      {% endif %}
+      
+      {# Dates #}
+      {% if domain_check.creation_date %}
+        {% set created_date = domain_check.creation_date[0] if domain_check.creation_date is iterable and domain_check.creation_date is not string else domain_check.creation_date %}
+      <div class="mb-1"><small class="text-muted">Created:</small> {{ created_date }}</div>
+      {% endif %}
+      
+      {% if domain_check.expiration_date %}
+        {% set expiry_date = domain_check.expiration_date[0] if domain_check.expiration_date is iterable and domain_check.expiration_date is not string else domain_check.expiration_date %}
+      <div class="mb-1"><small class="text-muted">Expires:</small> {{ expiry_date }}</div>
+      {% endif %}
+      
+      {% if domain_check.updated_date %}
+        {% set updated_date = domain_check.updated_date[0] if domain_check.updated_date is iterable and domain_check.updated_date is not string else domain_check.updated_date %}
+      <div class="mb-1"><small class="text-muted">Last Updated:</small> {{ updated_date }}</div>
+      {% endif %}
+      
+      {% if domain_check.days_to_expiration is not none %}
+        {% set days = domain_check.days_to_expiration %}
+        {% if days < 0 %}
+          {% set exp_class = 'text-danger' %}
+        {% elif days <= 30 %}
+          {% set exp_class = 'text-warning' %}
+        {% else %}
+          {% set exp_class = 'text-success' %}
+        {% endif %}
+      <div class="mb-2"><small class="text-muted">Days to Expiration:</small> <span class="{{ exp_class }}">{{ days }}</span></div>
+      {% endif %}
+      
+      {# Name servers #}
+      {% if domain_check.name_servers and domain_check.name_servers|length > 0 %}
+      <div class="mb-2">
+        <strong>Name Servers:</strong><br>
+        {% for ns in domain_check.name_servers %}
+        <small class="text-muted">•</small> {{ ns }}<br>
+        {% endfor %}
+      </div>
+      {% endif %}
+      
+      {# Status information #}
+      {% if domain_check.status and domain_check.status|length > 0 %}
+      <div class="mb-2">
+        <strong>Status:</strong><br>
+        {% for status in domain_check.status %}
+        <small class="text-muted">•</small> {{ status }}<br>
+        {% endfor %}
+      </div>
+      {% endif %}
+      
+      {# Registrant information #}
+      {% if domain_check.registrant %}
+      <div class="mb-2">
+        <strong>Registrant:</strong><br>
+        {% if domain_check.registrant is string %}
+        {{ domain_check.registrant }}<br>
+        {% elif domain_check.registrant is mapping %}
+          {% for key, value in domain_check.registrant.items() %}
+            {% if value %}
+        <small class="text-muted">{{ key }}:</small> {{ value }}<br>
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+      </div>
+      {% endif %}
+      
+      {# Admin Email #}
+      {% if domain_check.admin_email %}
+      <div class="mb-2">
+        <strong>Admin Email:</strong><br>
+        {% if domain_check.admin_email is iterable and domain_check.admin_email is not string %}
+          {% for email in domain_check.admin_email %}
+        {{ email }}<br>
+          {% endfor %}
+        {% else %}
+        {{ domain_check.admin_email }}<br>
+        {% endif %}
+      </div>
+      {% endif %}
+      
+      {# Tech Email #}
+      {% if domain_check.tech_email %}
+      <div class="mb-2">
+        <strong>Tech Email:</strong><br>
+        {% if domain_check.tech_email is iterable and domain_check.tech_email is not string %}
+          {% for email in domain_check.tech_email %}
+        {{ email }}<br>
+          {% endfor %}
+        {% else %}
+        {{ domain_check.tech_email }}<br>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  {% endif %}
+{% elif not monitor.check_domain %}
+  <div class="text-center text-muted">
+    <i class="bi bi-info-circle"></i>
+    <p class="mt-2 mb-0">Domain registration checking is not enabled for this monitor</p>
+  </div>
+{% else %}
+  <div class="text-center text-muted">
+    <i class="bi bi-info-circle"></i>
+    <p class="mt-2 mb-0">No domain registration data available</p>
+  </div>
+{% endif %}
+{% endmacro %}
+
+{# Macro for Domain Summary #}
+{% macro render_domain_summary(domain_check, monitor) %}
+{% if domain_check and domain_check.domain and not domain_check.error %}
+  {% set days = domain_check.days_to_expiration %}
+  {% if days is not none %}
+    {% if days < 0 %}
+      {% set status = 'EXPIRED' %}
+      {% set status_class = 'bg-danger' %}
+      {% set days_text = 'Expired ' ~ (days|abs) ~ ' days ago' %}
+      {% set days_class = 'text-danger' %}
+    {% elif days <= 30 %}
+      {% set status = 'EXPIRING SOON' %}
+      {% set status_class = 'bg-warning' %}
+      {% set days_text = days ~ ' days' %}
+      {% set days_class = 'text-warning' %}
+    {% else %}
+      {% set status = 'ACTIVE' %}
+      {% set status_class = 'bg-success' %}
+      {% set days_text = days ~ ' days' %}
+      {% set days_class = 'text-success' %}
+    {% endif %}
+  {% else %}
+    {% set status = 'ACTIVE' %}
+    {% set status_class = 'bg-info' %}
+    {% set days_text = 'N/A' %}
+    {% set days_class = 'text-muted' %}
+  {% endif %}
+{% else %}
+  {% set status = 'N/A' %}
+  {% set status_class = 'bg-secondary' %}
+  {% set days_text = 'Not Available' %}
+  {% set days_class = 'text-muted' %}
+{% endif %}
+<div class="d-flex justify-content-between align-items-center">
+  <div>
+    <small class="text-muted">Status:</small>
+    <span class="badge {{ status_class }} ms-1">{{ status }}</span>
+  </div>
+  <div>
+    <small class="text-muted">Expires in:</small>
+    <strong class="ms-1 {{ days_class }}">{{ days_text }}</strong>
+  </div>
+</div>
+{% endmacro %}
+
+{# Macro for DNS Records Display #}
+{% macro render_dns_records(domain_check, monitor) %}
+{% if domain_check and domain_check.dns_records %}
+  {% set dns_records = domain_check.dns_records %}
+  {% if dns_records.error %}
+    <div class="text-center text-muted">
+      <i class="bi bi-info-circle"></i>
+      <p class="mt-2 mb-0">{{ dns_records.error }}</p>
+    </div>
+  {% else %}
+    <div class="dns-info">
+      {# A records (IPv4) #}
+      {% if dns_records.a_records and dns_records.a_records|length > 0 %}
+      <div class="mb-3">
+        <strong>A Records (IPv4):</strong><br>
+        {% for record in dns_records.a_records %}
+        <span class="badge bg-secondary me-1">{{ record }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      
+      {# AAAA records (IPv6) #}
+      {% if dns_records.aaaa_records and dns_records.aaaa_records|length > 0 %}
+      <div class="mb-3">
+        <strong>AAAA Records (IPv6):</strong><br>
+        {% for record in dns_records.aaaa_records %}
+        <span class="badge bg-secondary me-1">{{ record }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      
+      {# MX records (Mail) #}
+      {% if dns_records.mx_records and dns_records.mx_records|length > 0 %}
+      <div class="mb-3">
+        <strong>MX Records (Mail):</strong><br>
+        {% for record in dns_records.mx_records %}
+        <div class="text-muted small">{{ record }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      
+      {# NS records (Name Servers) #}
+      {% if dns_records.ns_records and dns_records.ns_records|length > 0 %}
+      <div class="mb-3">
+        <strong>NS Records (Name Servers):</strong><br>
+        {% for record in dns_records.ns_records %}
+        <div class="text-muted small">{{ record }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      
+      {# TXT records #}
+      {% if dns_records.txt_records and dns_records.txt_records|length > 0 %}
+      <div class="mb-3">
+        <strong>TXT Records:</strong><br>
+        {% for record in dns_records.txt_records %}
+        <div class="text-muted small text-break">{{ record }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  {% endif %}
+{% elif not monitor.check_domain %}
+  <div class="text-center text-muted">
+    <i class="bi bi-info-circle"></i>
+    <p class="mt-2 mb-0">DNS checking is not enabled for this monitor</p>
+  </div>
+{% else %}
+  <div class="text-center text-muted">
+    <i class="bi bi-info-circle"></i>
+    <p class="mt-2 mb-0">No DNS data available</p>
+  </div>
+{% endif %}
+{% endmacro %}
+
+{# Macro for DNS Summary #}
+{% macro render_dns_summary(domain_check) %}
+{% if domain_check and domain_check.dns_records and not domain_check.dns_records.error %}
+  {% set dns = domain_check.dns_records %}
+  {% set count = (dns.a_records|length if dns.a_records else 0) + (dns.aaaa_records|length if dns.aaaa_records else 0) + (dns.mx_records|length if dns.mx_records else 0) + (dns.ns_records|length if dns.ns_records else 0) + (dns.txt_records|length if dns.txt_records else 0) %}
+  {% set status_class = 'bg-success' if count > 0 else 'bg-secondary' %}
+  {% set status_text = 'Available' if count > 0 else 'No Records' %}
+{% else %}
+  {% set count = 0 %}
+  {% set status_class = 'bg-secondary' %}
+  {% set status_text = 'No Records' %}
+{% endif %}
+<div class="d-flex justify-content-between align-items-center">
+  <div>
+    <small class="text-muted">Status:</small>
+    <span class="badge {{ status_class }} ms-1">{{ status_text }}</span>
+  </div>
+  <div>
+    <small class="text-muted">Total Records:</small>
+    <strong class="ms-1 text-success">{{ count }}</strong>
+  </div>
+</div>
+{% endmacro %}

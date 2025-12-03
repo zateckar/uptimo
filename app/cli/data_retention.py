@@ -136,9 +136,84 @@ def register_cli_commands(app):
                     if "active_count" in info:
                         click.echo(f"  Active count: {info['active_count']:,}")
 
+            # Show deduplication statistics
+            click.echo("\nDeduplication Statistics:")
+            click.echo("-" * 25)
+
+            try:
+                # Import here to avoid circular imports
+                from app.services.deduplication import deduplication_service
+
+                dedup_stats = deduplication_service.get_deduplication_stats()
+
+                if "error" in dedup_stats:
+                    click.echo(
+                        f"  Error getting deduplication stats: {dedup_stats['error']}"
+                    )
+                    return
+
+                # Error Messages
+                if "error_messages" in dedup_stats:
+                    stats = dedup_stats["error_messages"]
+                    click.echo("\nError Messages:")
+                    click.echo(f"  Unique entries: {stats['unique_messages']:,}")
+                    click.echo(f"  Total uses: {stats['total_uses']:,}")
+                    if stats["total_uses"] > 0:
+                        ratio = (
+                            stats["total_uses"] / stats["unique_messages"]
+                            if stats["unique_messages"] > 0
+                            else 1
+                        )
+                        click.echo(f"  Deduplication ratio: {ratio:.1f}x")
+                        click.echo(f"  Space saved: {stats['deduplication_ratio']}")
+
+                # TLS Certificates
+                if "tls_certificates" in dedup_stats:
+                    stats = dedup_stats["tls_certificates"]
+                    click.echo("\nTLS Certificates:")
+                    click.echo(f"  Unique certificates: {stats['unique_certs']:,}")
+                    click.echo(f"  Total uses: {stats['total_uses']:,}")
+                    if stats["total_uses"] > 0:
+                        ratio = (
+                            stats["total_uses"] / stats["unique_certs"]
+                            if stats["unique_certs"] > 0
+                            else 1
+                        )
+                        click.echo(f"  Deduplication ratio: {ratio:.1f}x")
+                        click.echo(f"  Space saved: {stats['deduplication_ratio']}")
+
+                # Domain Info
+                if "domain_info" in dedup_stats:
+                    stats = dedup_stats["domain_info"]
+                    click.echo("\nDomain Info:")
+                    click.echo(f"  Unique domains: {stats['unique_domains']:,}")
+                    click.echo(f"  Total uses: {stats['total_uses']:,}")
+                    if stats["total_uses"] > 0:
+                        ratio = (
+                            stats["total_uses"] / stats["unique_domains"]
+                            if stats["unique_domains"] > 0
+                            else 1
+                        )
+                        click.echo(f"  Deduplication ratio: {ratio:.1f}x")
+                        click.echo(f"  Space saved: {stats['deduplication_ratio']}")
+
+                # Overview
+                if "overview" in dedup_stats:
+                    overview = dedup_stats["overview"]
+                    click.echo("\nDeduplication Overview:")
+                    click.echo(
+                        f"  Total check results: {overview['total_check_results']:,}"
+                    )
+                    click.echo(
+                        f"  Reference records: {overview['reference_records']:,}"
+                    )
+
+            except Exception as e:
+                click.echo(f"  Error getting deduplication stats: {e}")
+
             # Show retention policies
             click.echo("\nRetention Policies:")
-            for data_type, days in stats["retention_policies"].items():
+            for data_type, days in data_retention_service.retention_policies.items():
                 click.echo(f"  {data_type}: {days} days")
 
         except Exception as e:
