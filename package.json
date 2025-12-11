@@ -1,0 +1,17 @@
+{
+  "name": "uptimo-e2e-tests",
+  "version": "1.0.0",
+  "description": "E2E tests for Uptimo monitoring application",
+  "scripts": {
+    "test": "node tests/e2e/run-e2e-tests.test.js run",
+    "test:debug": "node tests/e2e/run-e2e-tests.test.js debug",
+    "test:headed": "node tests/e2e/run-e2e-tests.test.js headed",
+    "test:install": "node tests/e2e/run-e2e-tests.test.js install",
+    "test:report": "node tests/e2e/run-e2e-tests.test.js report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "cline": "^1.0.8"
+  },
+  "dependencies": {}
+}

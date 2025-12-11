@@ -1,5 +1,6 @@
 import json
 import re
+from typing import Any, Mapping, Sequence
 from flask_wtf import FlaskForm
 from wtforms import (
     StringField,
@@ -610,10 +611,17 @@ class MonitorForm(FlaskForm):
 class MonitorEditForm(MonitorForm):
     """Form for editing existing monitors"""
 
-    def process(self, formdata=None, obj=None, data=None, **kwargs):
+    def process(
+        self,
+        formdata: Any = None,
+        obj: object | None = None,
+        data: Mapping[str, Any] | None = None,
+        extra_filters: Mapping[str, Sequence[Any]] | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Process form data, handling enum-to-string conversion for monitor type"""
         # Call parent process first
-        super().process(formdata, obj, data, **kwargs)
+        super().process(formdata, obj, data, extra_filters, **kwargs)
 
         # Convert monitor type enum to string if present
         if self.type.data and hasattr(self.type.data, "value"):

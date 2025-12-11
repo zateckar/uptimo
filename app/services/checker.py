@@ -23,11 +23,27 @@ except ImportError:
     dns = None  # type: ignore
 
 try:
-    import whois
+    import tldextract  # type: ignore
 
-    WHOIS_AVAILABLE = True
+    TLDEXTRACT_AVAILABLE = True
 except ImportError:
-    WHOIS_AVAILABLE = False
+    TLDEXTRACT_AVAILABLE = False
+    tldextract = None  # type: ignore
+
+try:
+    import whoisit
+
+    RDAP_AVAILABLE = True
+    # Initialize RDAP bootstrap data
+    try:
+        whoisit.bootstrap(allow_insecure=True, overrides=True)
+    except Exception:
+        # Bootstrap failure shouldn't prevent the app from starting
+        # It will be retried when needed
+        pass
+except ImportError:
+    RDAP_AVAILABLE = False
+    whoisit = None  # type: ignore
 
 # Optional Kafka imports
 try:
@@ -152,44 +168,80 @@ class MonitorChecker:
         time_since_last = datetime.now(timezone.utc) - last_check
         return time_since_last > timedelta(hours=24)
 
-    def _get_domain_info(self, hostname: str) -> Dict[str, Any]:
-        """Get domain registration information."""
-        if not WHOIS_AVAILABLE:
-            return {"error": "whois library not available"}
+    def _extract_registered_domain(self, hostname: str) -> str:
+        """Extract registered domain from hostname (e.g., subdomain.example.com -> example.com)."""
+        if not TLDEXTRACT_AVAILABLE or not tldextract:
+            # Fallback: return the hostname as-is
+            return hostname
 
         try:
-            domain_info_result = whois.whois(hostname)
-            # whois returns a dict-like object, access attributes safely
-            domain_info = (
-                domain_info_result
-                if isinstance(domain_info_result, dict)
-                else domain_info_result.__dict__
-            )
+            # Extract domain parts
+            extracted = tldextract.extract(hostname)
+            # Return registered domain (domain + suffix)
+            if extracted.domain and extracted.suffix:
+                return f"{extracted.domain}.{extracted.suffix}"
+            # If extraction failed, return original
+            return hostname
+        except Exception:
+            # On any error, return original hostname
+            return hostname
 
-            # Parse dates to ensure they're serializable
-            creation_date = (
-                domain_info.get("creation_date")
-                if isinstance(domain_info, dict)
-                else getattr(domain_info_result, "creation_date", None)
-            )
-            expiration_date = (
-                domain_info.get("expiration_date")
-                if isinstance(domain_info, dict)
-                else getattr(domain_info_result, "expiration_date", None)
-            )
-            updated_date = (
-                domain_info.get("updated_date")
-                if isinstance(domain_info, dict)
-                else getattr(domain_info_result, "updated_date", None)
-            )
+    def _get_domain_info(self, target: str) -> Dict[str, Any]:
+        """Get domain or IP registration information using RDAP."""
+        if not RDAP_AVAILABLE:
+            return {"error": "whoisit library not available"}
 
-            # Handle lists (some whois returns lists)
-            if isinstance(creation_date, list):
-                creation_date = creation_date[0] if creation_date else None
-            if isinstance(expiration_date, list):
-                expiration_date = expiration_date[0] if expiration_date else None
-            if isinstance(updated_date, list):
-                updated_date = updated_date[0] if updated_date else None
+        try:
+            # Ensure we have the whoisit module
+            assert whoisit is not None, "whoisit module should be available"
+
+            # Ensure RDAP is bootstrapped
+            try:
+                whoisit.bootstrap(allow_insecure=True, overrides=True)
+            except Exception:
+                # Bootstrap may fail, but we can still try the query
+                pass
+
+            # Determine if target is IP address or domain
+            is_ip = self._is_ip_address(target)
+
+            # For domains, extract registered domain for RDAP query
+            # (e.g., identity.skoda.vwgroup.com -> vwgroup.com)
+            rdap_query_target = target
+            if not is_ip:
+                rdap_query_target = self._extract_registered_domain(target)
+
+            # Query RDAP based on target type
+            if is_ip:
+                rdap_result = whoisit.ip(rdap_query_target, allow_insecure_ssl=True)
+                result_type = "ip"
+            else:
+                rdap_result = whoisit.domain(rdap_query_target, allow_insecure_ssl=True)
+                result_type = "domain"
+
+            if not rdap_result:
+                return {
+                    "error": f"No RDAP data found for {rdap_query_target}",
+                    "queried_domain": rdap_query_target,
+                    "original_hostname": target,
+                    "type": result_type,
+                }
+
+            # Extract common fields from RDAP response
+            result_data: Dict[str, Any] = {
+                "domain" if not is_ip else "ip": target,
+                "type": result_type,
+            }
+
+            # Add queried domain info if it differs from original
+            if not is_ip and rdap_query_target != target:
+                result_data["queried_domain"] = rdap_query_target
+                result_data["original_hostname"] = target
+
+            # Handle dates directly from whoisit response
+            creation_date = rdap_result.get("registration_date")
+            expiration_date = rdap_result.get("expiration_date")
+            updated_date = rdap_result.get("last_changed_date")
 
             # Calculate days to expiration
             days_to_expiration = None
@@ -198,41 +250,62 @@ class MonitorChecker:
                     expiration_date = expiration_date.replace(tzinfo=timezone.utc)
                 days_to_expiration = (expiration_date - datetime.now(timezone.utc)).days
 
-            # Get other attributes safely
-            registrar = (
-                domain_info.get("registrar")
-                if isinstance(domain_info, dict)
-                else getattr(domain_info_result, "registrar", None)
-            )
-            name_servers = (
-                domain_info.get("name_servers")
-                if isinstance(domain_info, dict)
-                else getattr(domain_info_result, "name_servers", None)
-            )
-            status_val = (
-                domain_info.get("status")
-                if isinstance(domain_info, dict)
-                else getattr(domain_info_result, "status", None)
-            )
-            registrant = (
-                domain_info.get("registrant")
-                if isinstance(domain_info, dict)
-                else getattr(domain_info_result, "registrant", None)
-            )
-            admin_emails = (
-                domain_info.get("admin_emails")
-                if isinstance(domain_info, dict)
-                else getattr(domain_info_result, "admin_emails", None)
-            )
-            tech_emails = (
-                domain_info.get("tech_emails")
-                if isinstance(domain_info, dict)
-                else getattr(domain_info_result, "tech_emails", None)
-            )
+            # Extract entities (registrar, registrant, etc.) from whoisit structure
+            entities = rdap_result.get("entities", {})
+            registrar_info = None
+            registrant_info = None
+            admin_emails = []
+            tech_emails = []
 
-            return {
-                "domain": hostname,
-                "registrar": registrar,
+            # whoisit returns entities as a dict with role keys
+            if isinstance(entities, dict):
+                # Extract registrar info
+                if "registrar" in entities and entities["registrar"]:
+                    registrar_list = entities["registrar"]
+                    if isinstance(registrar_list, list) and registrar_list:
+                        registrar_info = registrar_list[0].get("name", "")
+
+                # Extract registrant info
+                if "registrant" in entities and entities["registrant"]:
+                    registrant_list = entities["registrant"]
+                    if isinstance(registrant_list, list) and registrant_list:
+                        registrant_info = registrant_list[0].get("name", "")
+
+                # Extract abuse contact info (often used for admin/tech)
+                if "abuse" in entities and entities["abuse"]:
+                    abuse_list = entities["abuse"]
+                    if isinstance(abuse_list, list) and abuse_list:
+                        abuse_contact = abuse_list[0]
+                        if abuse_contact.get("email"):
+                            admin_emails.append(abuse_contact["email"])
+                        if abuse_contact.get("tel"):
+                            tech_emails.append(abuse_contact["tel"])
+
+            # Extract nameservers (whoisit returns as a simple list)
+            nameservers = rdap_result.get("nameservers", [])
+            name_servers = nameservers if isinstance(nameservers, list) else []
+
+            # Extract status (whoisit returns as a list)
+            status = rdap_result.get("status", [])
+            if isinstance(status, list):
+                status = ", ".join(status)
+
+            # Handle IP-specific fields
+            if is_ip:
+                ip_data: Dict[str, Any] = {
+                    "cidr": rdap_result.get("cidr"),
+                    "country": rdap_result.get("country"),
+                    "network": rdap_result.get("name"),
+                }
+                result_data.update(ip_data)
+
+            # Add whois server info
+            whois_server = rdap_result.get("whois_server", "")
+
+            # Build final result with proper typing
+            # Note: raw_rdap is excluded to prevent datetime serialization issues
+            final_data: Dict[str, Any] = {
+                "registrar": registrar_info,
                 "creation_date": creation_date.isoformat() if creation_date else None,
                 "expiration_date": expiration_date.isoformat()
                 if expiration_date
@@ -240,13 +313,22 @@ class MonitorChecker:
                 "updated_date": updated_date.isoformat() if updated_date else None,
                 "days_to_expiration": days_to_expiration,
                 "name_servers": name_servers,
-                "status": status_val,
-                "registrant": registrant,
-                "admin_email": admin_emails,
-                "tech_email": tech_emails,
+                "status": status,
+                "registrant": registrant_info,
+                "admin_email": admin_emails if admin_emails else None,
+                "tech_email": tech_emails if tech_emails else None,
+                "whois_server": whois_server,
             }
+            result_data.update(final_data)
+
+            return result_data
+
         except Exception as e:
-            return {"error": str(e), "domain": hostname}
+            return {
+                "error": str(e),
+                "domain" if not self._is_ip_address(target) else "ip": target,
+                "type": "ip" if self._is_ip_address(target) else "domain",
+            }
 
     def _get_dns_info(self, hostname: str) -> Dict[str, Any]:
         """Get DNS information for the hostname."""
@@ -402,36 +484,32 @@ class HTTPChecker(MonitorChecker):
                 and self.monitor.check_domain
                 and self._should_collect_domain_data()
             ):
-                # Skip if target is an IP address
-                if self._is_ip_address(parsed_url.hostname):
+                # Combine domain/RDAP and DNS info into domain_check for deduplication
+                domain_check_data = {
+                    "domain": parsed_url.hostname,
+                }
+
+                # Get domain/IP registration info (RDAP supports both)
+                domain_info = self._get_domain_info(parsed_url.hostname)
+                if "error" not in domain_info:
+                    domain_check_data.update(domain_info)
+                else:
                     # Mark as failed so we don't try again (scheduler will commit)
                     self.monitor.domain_check_failed = True
                     self.monitor.last_domain_check = datetime.now(timezone.utc)
-                else:
-                    # Combine domain and DNS info into domain_check for deduplication
-                    domain_check_data = {
-                        "domain": parsed_url.hostname,
-                    }
 
-                    # Get domain registration info
-                    domain_info = self._get_domain_info(parsed_url.hostname)
-                    if "error" not in domain_info:
-                        domain_check_data.update(domain_info)
-                    else:
-                        # Mark as failed so we don't try again (scheduler will commit)
-                        self.monitor.domain_check_failed = True
-                        self.monitor.last_domain_check = datetime.now(timezone.utc)
-                        # Still try to get DNS info
-
-                    # Get DNS info
+                # Get DNS info (only for hostnames, not IP addresses)
+                if not self._is_ip_address(parsed_url.hostname):
                     dns_info = self._get_dns_info(parsed_url.hostname)
                     if "error" not in dns_info:
                         domain_check_data["dns_records"] = dns_info
 
+                # Only add to additional_data if we have useful data
+                if len(domain_check_data) > 1:  # More than just the domain field
                     additional_data["domain_check"] = domain_check_data
 
-                    # Update timestamp (scheduler will commit)
-                    self.monitor.last_domain_check = datetime.now(timezone.utc)
+                # Update timestamp (scheduler will commit)
+                self.monitor.last_domain_check = datetime.now(timezone.utc)
 
             # Check SSL certificate if HTTPS
             # Only collect if needed (first check or >24h old)
@@ -680,29 +758,36 @@ class TCPChecker(MonitorChecker):
 
             additional_data = {}
 
-            # Get DNS info for TCP targets if it's a hostname
+            # Get domain/RDAP info for TCP targets
             # Only collect if needed (first check or >24h old)
-            if (
-                self.monitor.check_domain
-                and not self._is_ip_address(self.monitor.target)
-                and self._should_collect_domain_data()
-            ):
-                dns_info = self._get_dns_info(self.monitor.target)
+            if self.monitor.check_domain and self._should_collect_domain_data():
                 # Store as domain_check for deduplication
                 domain_check_data = {
                     "domain": self.monitor.target,
                     "ip_address": self.monitor.target,
                 }
-                if "error" not in dns_info:
-                    domain_check_data["dns_records"] = dns_info
-                    additional_data["domain_check"] = domain_check_data
 
-                    # Update timestamp (scheduler will commit)
-                    self.monitor.last_domain_check = datetime.now(timezone.utc)
+                # Get domain/IP registration info (RDAP supports both)
+                domain_info = self._get_domain_info(self.monitor.target)
+                if "error" not in domain_info:
+                    domain_check_data.update(domain_info)
                 else:
                     # Mark as failed so we don't try again (scheduler will commit)
                     self.monitor.domain_check_failed = True
                     self.monitor.last_domain_check = datetime.now(timezone.utc)
+
+                # Get DNS info (only for hostnames, not IP addresses)
+                if not self._is_ip_address(self.monitor.target):
+                    dns_info = self._get_dns_info(self.monitor.target)
+                    if "error" not in dns_info:
+                        domain_check_data["dns_records"] = dns_info
+
+                # Only add to additional_data if we have useful data
+                if len(domain_check_data) > 1:  # More than just the domain field
+                    additional_data["domain_check"] = domain_check_data
+
+                # Update timestamp (scheduler will commit)
+                self.monitor.last_domain_check = datetime.now(timezone.utc)
 
             if exit_code == 0:
                 return CheckResultData(
@@ -737,24 +822,16 @@ class PingChecker(MonitorChecker):
         try:
             additional_data = {}
 
-            # Get DNS and domain info for ping targets if it's a hostname
+            # Get domain/RDAP info for ping targets
             # Only collect if needed (first check or >24h old)
-            if (
-                self.monitor.check_domain
-                and not self._is_ip_address(self.monitor.target)
-                and self._should_collect_domain_data()
-            ):
-                # Combine domain and DNS info into domain_check for deduplication
+            if self.monitor.check_domain and self._should_collect_domain_data():
+                # Combine domain/RDAP and DNS info into domain_check for deduplication
                 domain_check_data = {
                     "domain": self.monitor.target,
                     "ip_address": self.monitor.target,
                 }
 
-                dns_info = self._get_dns_info(self.monitor.target)
-                if "error" not in dns_info:
-                    domain_check_data["dns_records"] = dns_info
-
-                # Get domain registration info
+                # Get domain/IP registration info (RDAP supports both)
                 domain_info = self._get_domain_info(self.monitor.target)
                 if "error" not in domain_info:
                     domain_check_data.update(domain_info)
@@ -763,17 +840,17 @@ class PingChecker(MonitorChecker):
                     self.monitor.domain_check_failed = True
                     self.monitor.last_domain_check = datetime.now(timezone.utc)
 
-                additional_data["domain_check"] = domain_check_data
+                # Get DNS info (only for hostnames, not IP addresses)
+                if not self._is_ip_address(self.monitor.target):
+                    dns_info = self._get_dns_info(self.monitor.target)
+                    if "error" not in dns_info:
+                        domain_check_data["dns_records"] = dns_info
+
+                # Only add to additional_data if we have useful data
+                if len(domain_check_data) > 1:  # More than just the domain field
+                    additional_data["domain_check"] = domain_check_data
 
                 # Update timestamp (scheduler will commit)
-                self.monitor.last_domain_check = datetime.now(timezone.utc)
-            elif (
-                self.monitor.check_domain
-                and self._is_ip_address(self.monitor.target)
-                and not self.monitor.domain_check_failed
-            ):
-                # For IP addresses, mark as failed on first check (scheduler will commit)
-                self.monitor.domain_check_failed = True
                 self.monitor.last_domain_check = datetime.now(timezone.utc)
             # If check_domain is False, don't add any domain info data
 

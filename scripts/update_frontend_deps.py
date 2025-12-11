@@ -10,7 +10,7 @@ from CDN URLs to their latest versions, including all necessary files
 import sys
 import logging
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Tuple
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 import json
@@ -22,7 +22,7 @@ SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 
 # Library configurations with CDN URLs
-LIBRARIES: Dict[str, Dict[str, str]] = {
+LIBRARIES: Dict[str, Dict[str, str | List[Tuple[str, str]]]] = {
     "bootstrap": {
         "package": "bootstrap",
         "cdn_base": "https://cdn.jsdelivr.net/npm/bootstrap@{version}/dist/",
@@ -174,8 +174,17 @@ class FrontendUpdater:
         config = LIBRARIES[library_name]
 
         # Get latest version dynamically
-        version = self._get_latest_version(config["package"])
-        cdn_base = config["cdn_base"].format(version=version)
+        package_name = config["package"]
+        if isinstance(package_name, str):
+            version = self._get_latest_version(package_name)
+        else:
+            raise ValueError(f"Package name must be a string, got {type(package_name)}")
+
+        cdn_base_url = config["cdn_base"]
+        if isinstance(cdn_base_url, str):
+            cdn_base = cdn_base_url.format(version=version)
+        else:
+            raise ValueError(f"CDN base must be a string, got {type(cdn_base_url)}")
 
         self.logger.info(f"Updating {library_name} to latest version {version}...")
 

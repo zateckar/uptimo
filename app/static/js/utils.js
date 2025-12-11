@@ -227,8 +227,7 @@ const Utils = {
     createToastContainer: function() {
         const container = document.createElement('div');
         container.id = 'toastContainer';
-        container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-        container.style.zIndex = '1050';
+        container.className = 'toast-container position-fixed bottom-0 end-0 p-3 toast-container-zindex-1050';
         document.body.appendChild(container);
         return container;
     },
@@ -316,56 +315,76 @@ const Utils = {
     _lastKnownFaviconStatus: null,
     
     // Convert columnar data format back to traditional row-based format
-    // This handles the optimized columnar format from the backend for better compression
+    // This handles both the old full columnar format and the new minimal chart format
     convertColumnarData: function(columnarData) {
         // Check if data is already in row-based format (legacy compatibility)
         if (Array.isArray(columnarData)) {
             return columnarData;
         }
         
-        // Check if this is columnar format (has column arrays)
-        if (!columnarData || typeof columnarData !== 'object' || !columnarData.ids) {
+        if (!columnarData || typeof columnarData !== 'object') {
             return [];
         }
         
-        const ids = columnarData.ids || [];
-        const monitorIds = columnarData.monitor_ids || [];
-        const timestamps = columnarData.timestamps || [];
-        const statuses = columnarData.statuses || [];
-        const responseTimes = columnarData.response_times || [];
-        const statusCodes = columnarData.status_codes || [];
-        const errorMessages = columnarData.error_messages || [];
-        const additionalData = columnarData.additional_data || [];
-        const isSuccesses = columnarData.is_successes || [];
-        const isTimeouts = columnarData.is_timeouts || [];
-        const isCertificateErrors = columnarData.is_certificate_errors || [];
-        
-        // Convert to row-based format
-        const rowData = [];
-        const length = Math.max(
-            ids.length, monitorIds.length, timestamps.length, statuses.length,
-            responseTimes.length, statusCodes.length, errorMessages.length,
-            additionalData.length, isSuccesses.length, isTimeouts.length,
-            isCertificateErrors.length
-        );
-        
-        for (let i = 0; i < length; i++) {
-            rowData.push({
-                id: ids[i],
-                monitor_id: monitorIds[i],
-                timestamp: timestamps[i],
-                status: statuses[i],
-                response_time: responseTimes[i],
-                status_code: statusCodes[i],
-                error_message: errorMessages[i],
-                additional_data: additionalData[i],
-                is_success: isSuccesses[i],
-                is_timeout: isTimeouts[i],
-                is_certificate_error: isCertificateErrors[i]
-            });
+        // Check if this is the new minimal chart format: {t: [...], r: [...], s: [...], c: [...], e: [...]}
+        if (columnarData.t && Array.isArray(columnarData.t)) {
+            const objects = [];
+            for (let i = 0; i < columnarData.t.length; i++) {
+                objects.push({
+                    t: columnarData.t[i],      // timestamp - keep short name for compatibility with charts.js
+                    r: columnarData.r[i],      // response_time - keep short name for compatibility with charts.js
+                    s: columnarData.s[i],      // status - keep short name for compatibility with charts.js
+                    c: columnarData.c[i],      // status_code - keep short name for compatibility with charts.js
+                    e: columnarData.e[i]       // error_message - keep short name for compatibility with charts.js
+                });
+            }
+            return objects;
         }
         
-        return rowData;
+        // Check if this is the old full columnar format (has column arrays with long names)
+        if (columnarData.ids && Array.isArray(columnarData.ids)) {
+            const ids = columnarData.ids || [];
+            const monitorIds = columnarData.monitor_ids || [];
+            const timestamps = columnarData.timestamps || [];
+            const statuses = columnarData.statuses || [];
+            const responseTimes = columnarData.response_times || [];
+            const statusCodes = columnarData.status_codes || [];
+            const errorMessages = columnarData.error_messages || [];
+            const additionalData = columnarData.additional_data || [];
+            const isSuccesses = columnarData.is_successes || [];
+            const isTimeouts = columnarData.is_timeouts || [];
+            const isCertificateErrors = columnarData.is_certificate_errors || [];
+            
+            // Convert to row-based format
+            const rowData = [];
+            const length = Math.max(
+                ids.length, monitorIds.length, timestamps.length, statuses.length,
+                responseTimes.length, statusCodes.length, errorMessages.length,
+                additionalData.length, isSuccesses.length, isTimeouts.length,
+                isCertificateErrors.length
+            );
+            
+            for (let i = 0; i < length; i++) {
+                rowData.push({
+                    id: ids[i],
+                    monitor_id: monitorIds[i],
+                    timestamp: timestamps[i],
+                    status: statuses[i],
+                    response_time: responseTimes[i],
+                    status_code: statusCodes[i],
+                    error_message: errorMessages[i],
+                    additional_data: additionalData[i],
+                    is_success: isSuccesses[i],
+                    is_timeout: isTimeouts[i],
+                    is_certificate_error: isCertificateErrors[i]
+                });
+            }
+            
+            return rowData;
+        }
+        
+        // Unknown format
+        return [];
     }
 };
 

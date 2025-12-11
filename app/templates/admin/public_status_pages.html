@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Public Status Pages{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{% if page_title %}{{ page_title }}{% else %}Public Status Pages{% endif %}</h1>
+        <a href="{{ url_for('admin.create_public_status_page') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create New Status Page
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if status_pages %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Your Public Status Pages</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>URL</th>
+                                <th>Monitors</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for page in status_pages %}
+                            <tr>
+                                <td>
+                                    <strong>{{ page.custom_header or 'Untitled Status Page' }}</strong>
+                                    {% if page.description %}
+                                        <br><small class="text-muted">{{ page.description[:100] }}{% if page.description|length > 100 %}...{% endif %}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <code>
+                                        {% if page.url_type == 'simple' %}
+                                            {{ url_for('public_status.public_status_simple', _external=True) }}
+                                        {% else %}
+                                            {{ url_for('public_status.public_status_uuid', page_uuid=page.uuid, _external=True) }}
+                                        {% endif %}
+                                    </code>
+                                    <button class="btn btn-sm btn-outline-secondary copy-url" data-url="{{
+                                        url_for('public_status.public_status_simple', _external=True) if page.url_type == 'simple'
+                                        else url_for('public_status.public_status_uuid', page_uuid=page.uuid, _external=True)
+                                    }}" title="Copy URL">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">{{ page.get_selected_monitor_ids()|length }}</span> monitors
+                                </td>
+                                <td>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input status-toggle" type="checkbox"
+                                               data-page-id="{{ page.id }}"
+                                               {% if page.is_active %}checked{% endif %}>
+                                        <label class="form-check-label">
+                                            {% if page.is_active %}
+                                                <span class="badge bg-success">Active</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inactive</span>
+                                            {% endif %}
+                                        </label>
+                                    </div>
+                                </td>
+                                <td>{{ page.created_at|timeago }}</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ url_for('admin.edit_public_status_page', page_id=page.id) }}"
+                                           class="btn btn-sm btn-outline-primary" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        {% if page.url_type != 'simple' %}
+                                        <a href="{{
+                                            url_for('public_status.public_status_uuid', page_uuid=page.uuid, _external=True)
+                                        }}"
+                                           class="btn btn-sm btn-outline-info" title="View" target="_blank">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% endif %}
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger delete-btn"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#deleteModal{{ page.id }}"
+                                                title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-globe display-1 text-muted"></i>
+                <h4 class="mt-3">No Public Status Pages</h4>
+                <p class="text-muted">Create your first public status page to share your monitors with the world.</p>
+                <a href="{{ url_for('admin.create_public_status_page') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Create Status Page
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Info Card -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-info-circle"></i> About Public Status Pages
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6><i class="bi bi-shield-lock"></i> Hidden UUID</h6>
+                    <p class="text-muted">Generate a secure, hard-to-guess URL that you can share with specific people. Ideal for private status pages.</p>
+                </div>
+                <div class="col-md-6">
+                    <h6><i class="bi bi-link"></i> Simple Path</h6>
+                    <p class="text-muted">Use a simple `/status` URL that's easy to remember. Only one simple path can be active at a time.</p>
+                </div>
+            </div>
+            <div class="mt-3">
+                <small class="text-muted">
+                    <strong>Note:</strong> Public status pages display monitor name and heartbeat information only. 
+                    No sensitive configuration details are exposed.
+                </small>
+            </div>
+        </div>
+    </div>
+
+    {% for page in status_pages %}
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal{{ page.id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete status page <strong>{{ page.custom_header or 'Untitled Status Page' }}</strong>?</p>
+                    <p class="text-danger">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        This action cannot be undone.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form method="POST" action="{{ url_for('admin.delete_public_status_page', page_id=page.id) }}" class="form-inline-display">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-danger">Delete Status Page</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/public-status-pages.js') }}"></script>
+{% endblock %}

@@ -6,6 +6,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Uptimo - Monitoring{% endblock %}</title>
     
+    <!-- Immediate Theme Initialization - Prevents white flash on page load -->
+    <script src="{{ url_for('static', filename='js/theme-init.js') }}"></script>
+    
     <!-- Dynamic Favicon -->
     <link rel="icon" type="image/svg+xml" href="{{ url_for('favicon') }}">
     <link rel="shortcut icon" type="image/svg+xml" href="{{ url_for('favicon') }}">
@@ -19,6 +22,9 @@
     
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    
+    <!-- Dynamic Colors CSS -->
+    <link href="{{ url_for('admin.custom_colors_css') }}" rel="stylesheet" id="custom-colors-css">
     
     {% block head %}{% endblock %}
 </head>
@@ -70,14 +76,19 @@
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('admin.color_customization') }}">
+                                    <i class="bi bi-palette-fill"></i> Color Customization
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
                             {% endif %}
                                                          <li>
                                 <a class="dropdown-item" href="{{ url_for('notifications.channels') }}">
                                     <i class="bi bi-sliders"></i> Notification Channels
                                 </a>
                             </li>
-                            <li><hr class="dropdown-divider"></li>
-                                                         <li>
+                                                             <li>
                                 <a class="dropdown-item" href="{{ url_for('notifications.history') }}">
                                     <i class="bi bi-clock-history"></i> Notification History
                                 </a>
@@ -141,9 +152,11 @@
     
     {% if current_user.is_authenticated %}
     <!-- Dashboard-specific JS - Only load for authenticated users -->
+    <!-- Load charts.js first as it's required by monitor.js and realtime.js -->
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
     <script src="{{ url_for('static', filename='js/monitor.js') }}"></script>
     <script src="{{ url_for('static', filename='js/realtime.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/outages.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     {% endif %}
     

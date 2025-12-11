@@ -3,6 +3,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
 from flask_compress import Compress
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import logging
 import time
 from typing import Any
@@ -11,6 +13,9 @@ db = SQLAlchemy()
 login_manager = LoginManager()
 csrf = CSRFProtect()
 compress = Compress()
+
+# Rate limiter extension
+limiter = None
 
 # Cache for favicon status to reduce database queries
 _favicon_cache = {
@@ -39,6 +44,7 @@ __all__ = [
     "invalidate_favicon_cache",
     "init_database",
     "import_all_models",
+    "limiter",
 ]
 
 
@@ -59,10 +65,10 @@ def import_all_models() -> None:
     This function imports all model modules to ensure SQLAlchemy is aware
     of all tables before calling db.create_all().
     """
-    from app.models import User, AppSettings
+    from app.models import User, AppSettings, PublicStatusPage
 
     # Reference models to ensure they are imported and registered with SQLAlchemy
-    _ = User, AppSettings
+    _ = User, AppSettings, PublicStatusPage
 
 
 def configure_sqlite(app):
@@ -118,6 +124,20 @@ def create_app(config_name: str = "default", start_scheduler: bool = True) -> Fl
     login_manager.init_app(app)
     csrf.init_app(app)
     compress.init_app(app)
+
+    # Initialize rate limiter extension
+    global limiter
+    try:
+        # Explicitly configure memory storage for rate limiting
+        limiter = Limiter(
+            app=app,
+            key_func=get_remote_address,
+            storage_uri="memory://",
+            default_limits=["60 per minute"],
+        )
+    except ImportError:
+        app.logger.warning("Flask-Limiter not available, rate limiting disabled")
+        limiter = None
 
     # Configure SQLite optimizations within app context
     with app.app_context():
@@ -200,14 +220,19 @@ def create_app(config_name: str = "default", start_scheduler: bool = True) -> Fl
             logging.basicConfig(level=logging.INFO)
             app.logger.warning(f"Failed to load log settings, using INFO: {e}")
 
+    # Log extension initialization now that logging is configured
+    if limiter:
+        app.logger.info("Rate limiter extension initialized with memory storage")
+
     # Register blueprints
-    from app.routes import admin, api, auth, dashboard, notifications
+    from app.routes import admin, api, auth, dashboard, notifications, public_status
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(dashboard.bp, url_prefix="/dashboard")
     app.register_blueprint(api.bp, url_prefix="/api")
     app.register_blueprint(notifications.bp, url_prefix="/notifications")
     app.register_blueprint(admin.bp, url_prefix="/admin")
+    app.register_blueprint(public_status.bp)  # Public status pages (no auth required)
 
     # Register template filters
     from app import template_filters

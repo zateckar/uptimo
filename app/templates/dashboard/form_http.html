@@ -127,8 +127,8 @@
                                 
                                 <div class="col-md-12">
                                     {{ form.http_body.label(class="form-label") }}
-                                    {{ form.http_body(class="form-control font-monospace", rows="4", placeholder='{"key": "value"}') }}
-                                    <div class="form-text">Request body for POST/PUT/PATCH requests</div>
+                                    {{ form.http_body(class="form-control font-monospace", rows="4", placeholder="Raw request body text (JSON, XML, plain text, etc.)") }}
+                                    <div class="form-text">Request body for POST/PUT/PATCH requests. Supports raw text, JSON, XML, etc.</div>
                                 </div>
                             </div>
                         </div>

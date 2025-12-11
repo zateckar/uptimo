@@ -67,5 +67,6 @@ def local_datetime(dt: Optional[datetime]) -> Optional[datetime]:
 def register_filters(app) -> None:
     """Register all template filters with the Flask application."""
     app.add_template_filter(ago, "ago")
+    app.add_template_filter(ago, "timeago")  # Alias for consistency
     app.add_template_filter(local_time, "local_time")
     app.add_template_filter(local_datetime, "local_datetime")

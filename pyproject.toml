@@ -1,6 +1,6 @@
 [project]
 name = "uptimo"
-version = "0.1.0"
+version = "1.0.0"
 description = "Monitoring application like UptimeRobot for personal/small-team use"
 authors = [
     {name = "Uptimo Team"}
@@ -25,9 +25,11 @@ dependencies = [
     "jinja2>=3.1.0",
     "sendgrid>=6.12.5",
     "dnspython>=2.6.1",
-    "python-whois>=0.9.6",
+    "whoisit>=0.5.0",
     "alembic>=1.14.1",
     "pytz>=2025.2",
+    "tldextract>=5.1.2",
+    "flask-limiter>=3.8.0",
 ]
 
 [build-system]

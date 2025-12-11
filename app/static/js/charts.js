@@ -8,7 +8,7 @@ const HeartbeatManager = {
         const container = document.getElementById('heartbeatContainer');
         if (!container) return;
         
-        // Get last 50 checks for heartbeat visualization
+        // checks are already in row-based format from Utils.convertColumnarData()
         const heartbeatChecks = checks.slice(-50).reverse();
         
         if (heartbeatChecks.length === 0) {
@@ -17,22 +17,22 @@ const HeartbeatManager = {
         }
         
         const html = heartbeatChecks.map(check => {
-            const statusClass = check.status === 'up' ? 'beat-up' :
-                              check.status === 'down' ? 'beat-down' : 'beat-unknown';
+            const statusClass = check.s === 'up' ? 'beat-up' :
+                              check.s === 'down' ? 'beat-down' : 'beat-unknown';
             
-            // Build result-focused tooltip
-            let tooltip = Utils.formatDateTime(check.timestamp);
+            // Build result-focused tooltip - using new minimal field format
+            let tooltip = Utils.formatDateTime(check.t);  // t = timestamp
             
             // Show the actual result/error
-            if (check.status === 'down' && check.error_message) {
-                tooltip += `\n${check.error_message}`;
-            } else if (check.status_code) {
-                tooltip += `\nHTTP ${check.status_code}`;
+            if (check.s === 'down' && check.e) {  // e = error_messages
+                tooltip += `\n${check.e}`;
+            } else if (check.c) {  // c = status_codes
+                tooltip += `\nHTTP ${check.c}`;
             }
             
             // Add response time if available
-            if (check.response_time) {
-                tooltip += `\n${Utils.formatResponseTime(check.response_time)}`;
+            if (check.r) {  // r = response_times
+                tooltip += `\n${Utils.formatResponseTime(check.r)}`;
             }
             
             return `<div class="beat beat-detail ${statusClass}" title="${tooltip}"></div>`;
@@ -46,7 +46,7 @@ const HeartbeatManager = {
         const container = document.getElementById(`heartbeat-${monitorId}`);
         if (!container) return;
         
-        // Get last 25 checks for mini heartbeat
+        // checks are already in row-based format from Utils.convertColumnarData()
         const heartbeatChecks = checks.slice(-25).reverse();
         
         if (heartbeatChecks.length === 0) {
@@ -54,43 +54,49 @@ const HeartbeatManager = {
             return;
         }
         
-        // Create a stable key for this heartbeat to prevent unnecessary DOM updates
-        const heartbeatKey = heartbeatChecks.map(check => `${check.status}-${check.timestamp}`).join('|');
-        
-        // Check if we need to update (avoid DOM updates if data hasn't changed)
-        if (container.dataset.heartbeatKey === heartbeatKey) {
-            return;
+        // For new monitors with fewer than 25 checks, always update since the array is growing
+        // For established monitors, use heartbeatKey optimization
+        let heartbeatKey = null;
+        if (heartbeatChecks.length >= 25) {
+            // Create a stable key for this heartbeat to prevent unnecessary DOM updates
+            heartbeatKey = heartbeatChecks.map(check => `${check.s}-${check.t}`).join('|');
+            
+            // Check if we need to update (avoid DOM updates if data hasn't changed)
+            if (container.dataset.heartbeatKey === heartbeatKey) {
+                return;
+            }
         }
         
         // Add timestamp to track last update time
-        const latestTimestamp = heartbeatChecks.length > 0 ? heartbeatChecks[0].timestamp : null;
+        const latestTimestamp = heartbeatChecks.length > 0 ? heartbeatChecks[0].t : null;
         
-        // Only update if new data is newer than existing data
-        if (latestTimestamp && container.dataset.lastUpdate) {
+        // For new monitors with growing arrays, always update regardless of timestamp
+        // For established monitors, only update if new data is newer than existing data
+        if (heartbeatChecks.length >= 25 && latestTimestamp && container.dataset.lastUpdate) {
             const existingTime = new Date(container.dataset.lastUpdate);
             const newTime = new Date(latestTimestamp);
             if (newTime <= existingTime) {
-                return; // Don't update with older data
+                return; // Don't update with older data for established monitors
             }
         }
         
         const html = heartbeatChecks.map(check => {
-            const statusClass = check.status === 'up' ? 'beat-up' :
-                              check.status === 'down' ? 'beat-down' : 'beat-unknown';
+            const statusClass = check.s === 'up' ? 'beat-up' :
+                              check.s === 'down' ? 'beat-down' : 'beat-unknown';
             
-            // Build result-focused tooltip
-            let tooltip = Utils.formatDateTime(check.timestamp);
+            // Build result-focused tooltip - using new minimal field format
+            let tooltip = Utils.formatDateTime(check.t);  // t = timestamp
             
             // Show the actual result/error
-            if (check.status === 'down' && check.error_message) {
-                tooltip += `\n${check.error_message}`;
-            } else if (check.status_code) {
-                tooltip += `\nHTTP ${check.status_code}`;
+            if (check.s === 'down' && check.e) {  // e = error_messages
+                tooltip += `\n${check.e}`;
+            } else if (check.c) {  // c = status_codes
+                tooltip += `\nHTTP ${check.c}`;
             }
             
             // Add response time if available
-            if (check.response_time) {
-                tooltip += `\n${Utils.formatResponseTime(check.response_time)}`;
+            if (check.r) {  // r = response_times
+                tooltip += `\n${Utils.formatResponseTime(check.r)}`;
             }
             
             // Smaller version for sidebar with reduced dimensions and margin
@@ -98,8 +104,42 @@ const HeartbeatManager = {
         }).join('');
         
         container.innerHTML = `<div class="mini-heartbeat-container">${html}</div>`;
-        container.dataset.heartbeatKey = heartbeatKey;
+        
+        // Only set heartbeatKey for established monitors (25+ checks)
+        // For new monitors, we don't set this key to allow continuous updates
+        if (heartbeatChecks.length >= 25) {
+            container.dataset.heartbeatKey = heartbeatKey;
+        } else {
+            // Clear any existing heartbeatKey for new monitors to ensure updates
+            delete container.dataset.heartbeatKey;
+        }
+        
         container.dataset.lastUpdate = latestTimestamp || new Date().toISOString();
+    }
+};
+
+// Utility function to convert columnar data to objects
+const ChartDataUtils = {
+    convertColumnarToObjects: function(columnarData) {
+        // Convert minimal columnar format back to objects for chart processing.
+        // Expected input format: {t: [...], r: [...], s: [...], c: [...], e: [...]}
+        // Output format: [{t: timestamp, r: response_time, s: status, c: status_code, e: error_message}, ...]
+        if (!columnarData || !columnarData.t || columnarData.t.length === 0) {
+            return [];
+        }
+        
+        const objects = [];
+        for (let i = 0; i < columnarData.t.length; i++) {
+            objects.push({
+                t: columnarData.t[i],  // timestamp
+                r: columnarData.r[i],  // response_time
+                s: columnarData.s[i],  // status
+                c: columnarData.c[i],  // status_code
+                e: columnarData.e[i]   // error_message
+            });
+        }
+        
+        return objects;
     }
 };
 
@@ -119,7 +159,7 @@ const ChartManager = {
             return;
         }
         
-        // Create a hash of the meaningful data to detect actual changes
+        // checks are already in row-based format from Utils.convertColumnarData()
         const currentDataHash = this.createDataHash(checks, timespan);
         
         // Skip update if data hasn't meaningfully changed
@@ -140,7 +180,7 @@ const ChartManager = {
         // Clear any existing chart instances on this canvas
         Chart.getChart(canvas)?.destroy();
         
-        // Filter data based on timespan
+        // Filter by timespan (reusing the already converted checks)
         const filteredChecks = this.filterChecksByTimespan(checks, timespan);
         
         // Create properly spaced data for linear timescale
@@ -268,9 +308,9 @@ const ChartManager = {
         // Since checks are sorted by timestamp descending (newest first),
         // we should look at the first 50 items (the most recent ones)
         const meaningfulData = checks.slice(0, 50).map(check => ({
-            t: check.timestamp,
-            s: check.status,
-            r: check.response_time
+            t: check.t,  // timestamp
+            s: check.s,  // status
+            r: check.r   // response_time
         }));
         
         // Simple string hash function
@@ -317,7 +357,7 @@ const ChartManager = {
                 cutoffTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         }
         
-        return checks.filter(check => new Date(check.timestamp) >= cutoffTime);
+        return checks.filter(check => new Date(check.t) >= cutoffTime);
     },
     
     // Get maximum data points for timespan
@@ -517,7 +557,7 @@ const ChartManager = {
             // Collect all checks that belong to this bucket
             for (let i = checkIndex; i < sortedChecks.length; i++) {
                 const check = sortedChecks[i];
-                const checkTime = new Date(check.timestamp);
+                const checkTime = new Date(check.t);
                 
                 // Skip checks before this bucket
                 if (checkTime < bucket.start) continue;
@@ -540,9 +580,9 @@ const ChartManager = {
     // Aggregate multiple checks into a single representative check
     aggregateBucketChecks: function(checks) {
         // Separate checks by status
-        const upChecks = checks.filter(c => c.status === 'up' && c.response_time !== null);
-        const downChecks = checks.filter(c => c.status === 'down');
-        const timeoutChecks = downChecks.filter(c => c.response_time === null);
+        const upChecks = checks.filter(c => c.s === 'up' && c.r !== null);
+        const downChecks = checks.filter(c => c.s === 'down');
+        const timeoutChecks = downChecks.filter(c => c.r === null);
         
         // Determine the dominant status (prioritize timeouts and downs)
         let dominantStatus;
@@ -564,9 +604,9 @@ const ChartManager = {
                 responseTime = 0; // Timeout represented as 0
             } else {
                 // For non-timeout downs, use average of any available response times
-                const downWithTime = downChecks.filter(c => c.response_time !== null);
+                const downWithTime = downChecks.filter(c => c.r !== null);
                 if (downWithTime.length > 0) {
-                    const sum = downWithTime.reduce((acc, c) => acc + c.response_time, 0);
+                    const sum = downWithTime.reduce((acc, c) => acc + c.r, 0);
                     responseTime = sum / downWithTime.length;
                 } else {
                     responseTime = 0; // No response times available
@@ -574,7 +614,7 @@ const ChartManager = {
             }
         } else if (dominantStatus === 'up' && upChecks.length > 0) {
             // For ups, use median for better representation of typical values
-            const times = upChecks.map(c => c.response_time).sort((a, b) => a - b);
+            const times = upChecks.map(c => c.r).sort((a, b) => a - b);
             const mid = Math.floor(times.length / 2);
             responseTime = times.length % 2 === 0
                 ? (times[mid - 1] + times[mid]) / 2  // Even: average of middle two
@@ -642,9 +682,9 @@ const ChartManager = {
         const { startTime, endTime } = this.createFixedTimeBoundaries(now, timespanHours);
         const timeIntervalMs = this.getOptimalTimeInterval(monitorIntervalMs, timespan);
         
-        // Sort checks by timestamp to ensure ordered processing
+        // Sort checks by timestamp to ensure ordered processing - using new field format
         const sortedChecks = [...checks].sort((a, b) =>
-            new Date(a.timestamp) - new Date(b.timestamp)
+            new Date(a.t) - new Date(b.t)  // t = timestamp
         );
         
         // Create time buckets with fixed boundaries
@@ -713,11 +753,11 @@ const ChartManager = {
         const statuses = [];
         
         sampledChecks.forEach(check => {
-            labels.push(this.formatLabelForTimespan(check.timestamp, timespan));
+            labels.push(this.formatLabelForTimespan(check.t, timespan));
             // For timeout checks with null response_time, use 0 to ensure they appear in chart
-            const responseTime = check.response_time !== null ? check.response_time : 0;
+            const responseTime = check.r !== null ? check.r : 0;
             values.push(responseTime);
-            statuses.push(check.status);
+            statuses.push(check.s);
         });
         
         return { labels, values, statuses };

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Internal Server Error - Uptimo</title>
+    
+    <!-- Dynamic Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+    <link rel="shortcut icon" type="image/svg+xml" href="/favicon.ico">
+    
+    <!-- Bootstrap CSS -->
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body data-app-timezone="{{ app_timezone or 'UTC' }}">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/dashboard/">
+                <i class="bi bi-activity"></i>
+                <span>Uptimo</span>
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav align-items-center gap-2">
+                    <li class="nav-item">
+                        <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode" aria-label="Toggle theme">
+                            <i class="bi bi-sun-fill" id="themeIcon"></i>
+                        </button>
+                    </li>
+                    
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('dashboard.index') }}">
+                            Dashboard
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="btn btn-sm btn-primary" href="{{ url_for('auth.login') }}">
+                            Log In
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    <div class="container-fluid mt-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Main Content -->
+    <main class="container-fluid py-3">
+        <div class="row justify-content-center min-vh-70 align-items-center">
+            <div class="col-md-8 col-lg-6 text-center">
+                <div class="py-5">
+                    <div class="mb-4">
+                        <i class="bi bi-exclamation-triangle icon-size-6rem icon-danger-color"></i>
+                    </div>
+                    <h1 class="display-1 fw-bold mb-3 text-color-danger">500</h1>
+                    <h2 class="h3 fw-semibold mb-3">Internal Server Error</h2>
+                    <p class="text-muted mb-4">
+                        Something went wrong on our end. Please try again later, or contact support if the problem persists.
+                    </p>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <a href="{{ url_for('dashboard.index') if current_user.is_authenticated else url_for('auth.login') }}" class="btn btn-primary">
+                            <i class="bi bi-house-fill me-2"></i>
+                            {{ 'Dashboard' if current_user.is_authenticated else 'Login' }}
+                        </a>
+                        <button data-action="go-back" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>
+                            Go Back
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JS - Load in dependency order -->
+    <script src="/static/js/config.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/error-pages.js"></script>
+</body>
+</html>

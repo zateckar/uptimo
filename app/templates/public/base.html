@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ status_page.custom_header or 'Status Page' }} - Uptimo{% endblock %}</title>
+    
+    <!-- Dynamic Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('favicon') }}">
+    <link rel="shortcut icon" type="image/svg+xml" href="{{ url_for('favicon') }}">
+    
+    <!-- Bootstrap CSS -->
+    <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}" rel="stylesheet">
+    
+    <!-- Custom CSS for public status pages -->
+    <link href="{{ url_for('static', filename='css/public-status.css') }}" rel="stylesheet">
+    
+    {% block head %}{% endblock %}
+</head>
+<body class="public-status-page" data-app-timezone="{{ app_timezone|default('UTC') }}">
+    <!-- Theme Toggle Button -->
+    <div class="theme-toggle-container position-fixed top-0 end-0 p-3">
+        <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode" aria-label="Toggle theme">
+            <i class="bi bi-sun-fill" id="themeIcon"></i>
+        </button>
+    </div>
+
+    <!-- Main Content -->
+    <main class="container-fluid py-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages-container position-fixed top-0 start-50 translate-middle-x p-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        <div class="d-flex align-items-center">
+                            {% if category == 'success' %}
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            {% elif category == 'danger' or category == 'error' %}
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            {% elif category == 'warning' %}
+                            <i class="bi bi-exclamation-circle-fill me-2"></i>
+                            {% else %}
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                            {% endif %}
+                            <span>{{ message }}</span>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Bootstrap JS -->
+    <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+    
+    <!-- Custom JS - Load utils.js for theme management -->
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

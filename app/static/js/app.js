@@ -24,6 +24,22 @@ function setupEventListeners() {
             MonitorManager.loadDetails(monitorId);
         });
     });
+    
+    // Back to outages button (legacy, removed from template)
+    const backToOutagesBtn = document.getElementById("backToOutagesBtn");
+    if (backToOutagesBtn) {
+        backToOutagesBtn.addEventListener("click", function() {
+            MonitorManager.deselectMonitor();
+        });
+    }
+    
+    // Show outages button in sidebar
+    const showOutagesBtn = document.getElementById("showOutagesBtn");
+    if (showOutagesBtn) {
+        showOutagesBtn.addEventListener("click", function() {
+            MonitorManager.deselectMonitor();
+        });
+    }
 }
 
 // Handle page visibility changes to manage SSE connections
@@ -78,8 +94,13 @@ function autoSelectMonitor() {
     const monitorItems = document.querySelectorAll('.monitor-item[data-monitor-id]');
     
     if (monitorItems.length === 0) {
-        // No monitors available
+        // No monitors available, show empty state
         return;
+    }
+    
+    // Initialize outages list (shown when no monitor is selected)
+    if (typeof OutagesManager !== 'undefined') {
+        OutagesManager.initialize();
     }
     
     let monitorToSelect = null;
@@ -95,17 +116,15 @@ function autoSelectMonitor() {
         }
     }
     
-    // If no last selected monitor or it doesn't exist, select the first one
-    if (!monitorToSelect) {
-        monitorToSelect = monitorItems[0];
-        const firstMonitorId = monitorToSelect.dataset.monitorId;
-        console.log(`Auto-selecting first monitor: ${firstMonitorId}`);
-    }
-    
-    // Trigger selection
+    // Only auto-select if we have a previously selected monitor
+    // Otherwise, show the outages list
     if (monitorToSelect) {
         const monitorId = parseInt(monitorToSelect.dataset.monitorId);
         MonitorManager.loadDetails(monitorId);
+    } else {
+        // No monitor to select, show outages list
+        console.log('No monitor to auto-select, showing outages list');
+        MonitorManager.deselectMonitor();
     }
 }
 
@@ -141,3 +160,4 @@ document.addEventListener("DOMContentLoaded", function() {
 // Export global functions for inline event handlers
 window.MonitorManager = MonitorManager;
 window.TimespanManager = TimespanManager;
+window.OutagesManager = OutagesManager;

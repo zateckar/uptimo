@@ -40,11 +40,15 @@ class User(UserMixin, db.Model):
         is_active: bool = True,
         **kwargs: Any,
     ) -> None:
+        # Set is_active through kwargs to avoid direct assignment
+        if "is_active" not in kwargs:
+            kwargs["is_active"] = is_active
+        if "is_admin" not in kwargs:
+            kwargs["is_admin"] = is_admin
+
         super().__init__(**kwargs)
         self.username = username
         self.email = email
-        self.is_admin = is_admin
-        self.is_active = is_active
 
     def set_password(self, password: str) -> None:
         """Set password hash."""

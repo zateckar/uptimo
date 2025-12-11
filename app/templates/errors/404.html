@@ -16,7 +16,7 @@
                 <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary btn-lg">
                     <i class="bi bi-house-door"></i> Go to Dashboard
                 </a>
-                <button onclick="window.history.back()" class="btn btn-outline-secondary btn-lg">
+                <button type="button" id="go-back-btn" class="btn btn-outline-secondary btn-lg" data-action="back">
                     <i class="bi bi-arrow-left"></i> Go Back
                 </button>
             </div>
@@ -25,9 +25,7 @@
     </div>
 </div>
 
-<style>
-.min-vh-70 {
-    min-height: 70vh;
-}
-</style>
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/error-pages.js') }}"></script>
+{% endblock %}
 {% endblock %}

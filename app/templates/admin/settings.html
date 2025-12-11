@@ -53,6 +53,46 @@
             </div>
         </div>
 
+        <!-- Public Status Pages -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-globe"></i> Public Status Pages</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        <i class="bi bi-info-circle"></i>
+                        Create public status pages to share your monitor status with external users.
+                        Only monitor names and status information are visible to the public.
+                    </p>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('admin.public_status_pages') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-list"></i> Manage Status Pages
+                        </a>
+                        <a href="{{ url_for('admin.create_public_status_page') }}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Create New Status Page
+                        </a>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h4 class="mb-1 text-primary">{{ public_status_count }}</h4>
+                                <small class="text-muted">Total Pages</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="mb-1 text-success">{{ active_public_status_count }}</h4>
+                            <small class="text-muted">Active Pages</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Database Management -->
         <div class="col-lg-6 mb-4">
             <div class="card">
@@ -127,8 +167,30 @@
                 </div>
             </div>
         </div>
+
+        <!-- Color Customization Link -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-palette-fill"></i> Color Customization</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        Customize the application's color scheme to match your brand or preferences.
+                        Configure colors for both light and dark themes.
+                    </p>
+                    <div class="d-grid">
+                        <a href="{{ url_for('admin.color_customization') }}" class="btn btn-primary">
+                            <i class="bi bi-palette-fill"></i> Customize Colors
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+{% endblock %}
+
 
 <!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deleteRecordsModal" tabindex="-1">
@@ -156,5 +218,3 @@
         </div>
     </div>
 </div>
-
-{% endblock %}

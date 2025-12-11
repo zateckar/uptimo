@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Any, Dict
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -8,6 +9,7 @@ from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 from app.models.monitor import Monitor
 from app.models.incident import Incident
 from app.services.checker import CheckerFactory
+from app.services.public_status_service import PublicStatusService
 from app.notification.service import NotificationService
 
 # Global scheduler instance
@@ -28,11 +30,11 @@ class MonitorScheduler:
         scheduler.add_listener(self._job_executed, EVENT_JOB_EXECUTED)
         scheduler.add_listener(self._job_error, EVENT_JOB_ERROR)
 
-    def _job_executed(self, event):
+    def _job_executed(self, event: Any) -> None:
         """Handle successful job execution"""
         logger.debug(f"Job {event.job_id} executed successfully")
 
-    def _job_error(self, event):
+    def _job_error(self, event: Any) -> None:
         """Handle job execution errors"""
         logger.error(f"Job {event.job_id} failed: {event.exception}")
 
@@ -49,7 +51,7 @@ class MonitorScheduler:
 
         logger.info(f"Scheduled {len(monitors)} active monitors")
 
-    def schedule_monitor(self, monitor, run_immediately: bool = False):
+    def schedule_monitor(self, monitor: Any, run_immediately: bool = False) -> None:
         """Schedule a single monitor
 
         Args:
@@ -95,7 +97,7 @@ class MonitorScheduler:
         except Exception as e:
             logger.error(f"Failed to schedule monitor {monitor.name}: {e}")
 
-    def unschedule_monitor(self, monitor_id):
+    def unschedule_monitor(self, monitor_id: int) -> None:
         """Unschedule a monitor"""
         job_id = f"monitor_{monitor_id}"
 
@@ -105,7 +107,7 @@ class MonitorScheduler:
         except Exception:
             pass
 
-    def _execute_monitor_check(self, monitor_id):
+    def _execute_monitor_check(self, monitor_id: int) -> None:
         """Execute a single monitor check"""
         # Import app here to avoid circular imports
         from app import create_app
@@ -142,6 +144,10 @@ class MonitorScheduler:
                     additional_data=check_result.additional_data,
                 )
 
+                # Invalidate cache when monitor status changes
+                if previous_status != check_result.status:
+                    PublicStatusService.invalidate_monitor_cache(monitor.id)
+
                 # Send notifications if status changed
                 if previous_status != check_result.status:
                     self._handle_status_change(monitor, previous_status, check_result)
@@ -176,7 +182,9 @@ class MonitorScheduler:
                 except Exception:
                     pass
 
-    def _handle_status_change(self, monitor, previous_status, check_result):
+    def _handle_status_change(
+        self, monitor: Any, previous_status: str, check_result: Any
+    ) -> None:
         """Handle status change notifications"""
         try:
             if check_result.status == "down" and previous_status != "down":
@@ -229,7 +237,7 @@ class MonitorScheduler:
         except Exception as e:
             logger.error(f"Error handling status change for monitor {monitor.id}: {e}")
 
-    def _handle_ssl_warning(self, monitor, ssl_info):
+    def _handle_ssl_warning(self, monitor: Any, ssl_info: Dict[str, Any]) -> None:
         """Handle SSL certificate expiration warnings"""
         try:
             days_to_expiration = ssl_info.get("days_to_expiration", 999)
@@ -251,7 +259,7 @@ class MonitorScheduler:
         except Exception as e:
             logger.error(f"Error handling SSL warning for monitor {monitor.id}: {e}")
 
-    def get_scheduled_jobs(self):
+    def get_scheduled_jobs(self) -> list[Dict[str, Any]]:
         """Get information about all scheduled jobs"""
         jobs = []
 
@@ -275,7 +283,7 @@ class MonitorScheduler:
 
         return jobs
 
-    def run_check_now(self, monitor_id):
+    def run_check_now(self, monitor_id: int) -> bool:
         """Run a check immediately (synchronously)"""
         from flask import current_app
 
@@ -299,7 +307,7 @@ class MonitorScheduler:
 monitor_scheduler = MonitorScheduler()
 
 
-def init_scheduler():
+def init_scheduler() -> None:
     """Initialize the monitor scheduler"""
     try:
         # Schedule all active monitors

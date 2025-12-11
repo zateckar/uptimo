@@ -106,23 +106,42 @@ class Incident(db.Model):
 
     def get_duration_formatted(self) -> str:
         """Get formatted duration string."""
-        if not self.duration:
-            if self.is_active():
-                # Calculate current duration
-                # Ensure started_at is timezone-aware
-                started_at_utc = self.started_at
-                if started_at_utc.tzinfo is None:
-                    started_at_utc = started_at_utc.replace(tzinfo=timezone.utc)
+        duration_seconds = None
 
-                now_utc = datetime.now(timezone.utc)
-                self.duration = (now_utc - started_at_utc).total_seconds()
-            else:
-                return "N/A"
+        if self.duration is not None:
+            # Use stored duration for resolved incidents
+            duration_seconds = self.duration
+        elif self.is_active():
+            # Calculate current duration for active incidents without modifying state
+            # Ensure started_at is timezone-aware
+            started_at_utc = self.started_at
+            if started_at_utc.tzinfo is None:
+                started_at_utc = started_at_utc.replace(tzinfo=timezone.utc)
 
-        days = int(self.duration // 86400)
-        hours = int((self.duration % 86400) // 3600)
-        minutes = int((self.duration % 3600) // 60)
-        seconds = int(self.duration % 60)
+            now_utc = datetime.now(timezone.utc)
+            duration_seconds = (now_utc - started_at_utc).total_seconds()
+        elif self.resolved_at is not None and self.started_at is not None:
+            # Calculate duration for resolved incidents where duration is not stored
+            # Ensure both datetimes are timezone-aware
+            started_at_utc = self.started_at
+            resolved_at_utc = self.resolved_at
+            if started_at_utc.tzinfo is None:
+                started_at_utc = started_at_utc.replace(tzinfo=timezone.utc)
+            if resolved_at_utc.tzinfo is None:
+                resolved_at_utc = resolved_at_utc.replace(tzinfo=timezone.utc)
+
+            duration_seconds = (resolved_at_utc - started_at_utc).total_seconds()
+        else:
+            return "N/A"
+
+        # Ensure we have a valid duration
+        if duration_seconds is None:
+            return "N/A"
+
+        days = int(duration_seconds // 86400)
+        hours = int((duration_seconds % 86400) // 3600)
+        minutes = int((duration_seconds % 3600) // 60)
+        seconds = int(duration_seconds % 60)
 
         if days > 0:
             return f"{days}d {hours}h {minutes}m"
@@ -167,12 +186,29 @@ class Incident(db.Model):
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert incident to dictionary for API responses."""
+        # Calculate duration if it's null but we have the data to calculate it
+        duration = self.duration
+        if (
+            duration is None
+            and self.resolved_at is not None
+            and self.started_at is not None
+        ):
+            # Ensure both datetimes are timezone-aware
+            started_at_utc = self.started_at
+            resolved_at_utc = self.resolved_at
+            if started_at_utc.tzinfo is None:
+                started_at_utc = started_at_utc.replace(tzinfo=timezone.utc)
+            if resolved_at_utc.tzinfo is None:
+                resolved_at_utc = resolved_at_utc.replace(tzinfo=timezone.utc)
+
+            duration = (resolved_at_utc - started_at_utc).total_seconds()
+
         return {
             "id": self.id,
             "monitor_id": self.monitor_id,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
-            "duration": self.duration,
+            "duration": duration,
             "duration_formatted": self.get_duration_formatted(),
             "status": self.status,
             "is_active": self.is_active(),

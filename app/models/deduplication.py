@@ -156,7 +156,56 @@ class DomainInfo(db.Model):
             Dictionary containing complete domain check data
         """
         try:
-            return json.loads(self.dns_info or "{}")
+            domain_data = json.loads(self.dns_info or "{}")
+
+            # Calculate days_to_expiration if expiration_date is available
+            if (
+                domain_data.get("expiration_date")
+                and "days_to_expiration" not in domain_data
+            ):
+                try:
+                    # Handle both string and list formats for expiration_date
+                    exp_date = domain_data["expiration_date"]
+                    if isinstance(exp_date, list) and exp_date:
+                        exp_date = exp_date[0]
+
+                    if exp_date:
+                        # Parse the expiration date - try common formats
+                        from datetime import datetime
+                        import re
+
+                        # Try ISO format first
+                        try:
+                            expires_at = datetime.fromisoformat(
+                                exp_date.replace("Z", "+00:00")
+                            )
+                        except (ValueError, AttributeError):
+                            # Try WHOIS format (e.g., "2025-12-09T00:00:00Z" or "2025-12-09")
+                            try:
+                                # Extract date part
+                                date_match = re.search(r"(\d{4}-\d{2}-\d{2})", exp_date)
+                                if date_match:
+                                    date_str = date_match.group(1)
+                                    expires_at = datetime.strptime(date_str, "%Y-%m-%d")
+                                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                                else:
+                                    raise ValueError("No date found")
+                            except ValueError:
+                                # If all parsing fails, skip calculation
+                                return domain_data
+
+                        # Calculate days to expiration
+                        if expires_at:
+                            delta = expires_at - datetime.now(timezone.utc)
+                            domain_data["days_to_expiration"] = int(
+                                delta.total_seconds() // 86400
+                            )
+
+                except (ValueError, TypeError, AttributeError):
+                    # If parsing fails, leave without days_to_expiration
+                    pass
+
+            return domain_data
         except (json.JSONDecodeError, TypeError):
             return {}
 

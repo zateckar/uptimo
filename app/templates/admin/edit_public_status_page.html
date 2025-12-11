@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Public Status Page{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Edit Public Status Page</h1>
+        <a href="{{ url_for('admin.public_status_pages') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Status Pages
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Status Page Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <!-- Basic Information -->
+                        <div class="mb-4">
+                            <h6><i class="bi bi-info-circle"></i> Basic Information</h6>
+                            <hr>
+                            
+                            <div class="mb-3">
+                                {{ form.custom_header.label(class="form-label") }}
+                                {{ form.custom_header(class="form-control" + (" is-invalid" if form.custom_header.errors else "")) }}
+                                {% if form.custom_header.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.custom_header.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">The main heading displayed on your status page. Leave empty for default header.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                {{ form.description.label(class="form-label") }}
+                                {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else ""), rows="3") }}
+                                {% if form.description.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.description.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">A description that appears below the header on your status page.</div>
+                            </div>
+                        </div>
+
+                        <!-- URL Configuration -->
+                        <div class="mb-4">
+                            <h6><i class="bi bi-link"></i> URL Configuration</h6>
+                            <hr>
+                            
+                            <div class="mb-3">
+                                {{ form.url_type.label(class="form-label") }}
+                                {{ form.url_type(class="form-select" + (" is-invalid" if form.url_type.errors else ""), disabled=true) }}
+                                {% if form.url_type.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.url_type.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">
+                                    <small class="text-muted">URL type cannot be changed after creation for security reasons.</small>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Current URL:</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" readonly value="
+{%- if status_page.url_type == 'simple' -%}
+{{ url_for('public_status.public_status_simple', _external=True) }}
+{%- else -%}
+{{ url_for('public_status.public_status_uuid', page_uuid=status_page.uuid, _external=True) }}
+{%- endif -%}
+                                    ">
+                                    <button class="btn btn-outline-secondary copy-url" data-url="
+{%- if status_page.url_type == 'simple' -%}
+{{ url_for('public_status.public_status_simple', _external=True) }}
+{%- else -%}
+{{ url_for('public_status.public_status_uuid', page_uuid=status_page.uuid, _external=True) }}
+{%- endif -%}
+                                    " type="button">
+                                        <i class="bi bi-clipboard"></i> Copy
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Monitor Selection -->
+                        <div class="mb-4">
+                            <h6><i class="bi bi-check2-square"></i> Monitor Selection</h6>
+                            <hr>
+                            
+                            <div class="mb-3">
+                                {% if form.selected_monitors.choices %}
+                                    {% for monitor in form.selected_monitors %}
+                                        <div class="form-check">
+                                            {{ monitor(class="form-check-input" + (" is-invalid" if form.selected_monitors.errors else "")) }}
+                                            {{ monitor.label(class="form-check-label") }}
+                                        </div>
+                                    {% endfor %}
+                                    {% if form.selected_monitors.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.selected_monitors.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        No monitors available. <a href="{{ url_for('dashboard.index') }}">Create some monitors first</a> before setting up a public status page.
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">Select which monitors to display on this public status page. At least one monitor must be selected.</div>
+                            </div>
+                        </div>
+
+                        <!-- Status -->
+                        <div class="mb-4">
+                            <h6><i class="bi bi-toggle-on"></i> Status</h6>
+                            <hr>
+                            
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="is_active_preview" 
+                                       {% if status_page.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="is_active_preview">
+                                    Status page is 
+                                    <span id="status-text">{% if status_page.is_active %}Active{% else %}Inactive{% endif %}</span>
+                                </label>
+                                <div class="form-text">
+                                    <small class="text-muted">Toggle the switch in the main list to activate/deactivate this status page.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin.public_status_pages') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                            <div>
+                                {% if status_page.url_type != 'simple' %}
+                                <a href="{{
+                                    url_for('public_status.public_status_uuid', page_uuid=status_page.uuid, _external=True)
+                                }}"
+                                   class="btn btn-outline-info me-2" target="_blank">
+                                    <i class="bi bi-eye"></i> View Page
+                                </a>
+                                {% endif %}
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-circle"></i> Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/public-status.js') }}"></script>
+{% endblock %}

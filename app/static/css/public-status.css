@@ -1,0 +1,371 @@
+/* Public Status Page Styling */
+
+/* ============================================================================
+   CSS CUSTOM PROPERTIES FOR THEME SUPPORT
+   ============================================================================ */
+
+:root {
+    /* Light mode colors */
+    --public-bg-body: #f8f9fa;
+    --public-bg-surface: #ffffff;
+    --public-bg-surface-hover: #f8f9fa;
+    --public-text-primary: #333;
+    --public-text-secondary: #6c757d;
+    --public-text-muted: #adb5bd;
+    --public-border-color: rgba(0, 0, 0, 0.05);
+    --public-border-color-hover: rgba(0, 0, 0, 0.1);
+    --public-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    --public-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --public-heartbeat-bg: #e9ecef;
+}
+
+[data-theme="dark"] {
+    /* Dark mode colors */
+    --public-bg-body: #1a1a1a;
+    --public-bg-surface: #2d2d2d;
+    --public-bg-surface-hover: #353535;
+    --public-text-primary: #e0e0e0;
+    --public-text-secondary: #adb5bd;
+    --public-text-muted: #9ca3af;
+    --public-border-color: rgba(255, 255, 255, 0.1);
+    --public-border-color-hover: rgba(255, 255, 255, 0.15);
+    --public-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    --public-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --public-heartbeat-bg: #495057;
+}
+
+/* Body and Layout */
+.public-status-page {
+    background-color: var(--public-bg-body);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    color: var(--public-text-primary);
+    line-height: 1.6;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Cards */
+.card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: var(--public-shadow);
+    background-color: var(--public-bg-surface);
+    transition: box-shadow 0.2s ease-in-out, background-color 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: var(--public-shadow-hover);
+}
+
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+    border-bottom: 1px solid var(--public-border-color);
+    background-color: var(--public-bg-surface) !important;
+    color: var(--public-text-primary);
+}
+
+/* Status Indicators */
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-operational {
+    background-color: #198754; /* Bootstrap success */
+    box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.2);
+}
+
+.status-down {
+    background-color: #dc3545; /* Bootstrap danger */
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2);
+}
+
+.status-degraded {
+    background-color: #ffc107; /* Bootstrap warning */
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.2);
+}
+
+.status-unknown {
+    background-color: #6c757d; /* Bootstrap secondary */
+    box-shadow: 0 0 0 2px rgba(108, 117, 125, 0.2);
+}
+
+/* Service List */
+.list-group-item {
+    border: none;
+    border-bottom: 1px solid var(--public-border-color);
+    padding: 1rem 1.25rem;
+    background-color: var(--public-bg-surface);
+    color: var(--public-text-primary);
+    transition: background-color 0.15s ease-in-out;
+}
+
+.list-group-item:hover {
+    background-color: var(--public-bg-surface-hover);
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+/* Heartbeat Timeline */
+.heartbeat-timeline {
+    display: flex;
+    gap: 1px;
+    align-items: center;
+    height: 12px;
+    width: 100%;
+    border-radius: 6px;
+    overflow: hidden;
+    background-color: var(--public-heartbeat-bg);
+    transition: background-color 0.2s ease;
+}
+
+.heartbeat-dot {
+    flex: 1;
+    height: 100%;
+    display: inline-block;
+    border-radius: 2px;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    cursor: pointer;
+    min-width: 2px;
+}
+
+.heartbeat-dot:hover {
+    opacity: 0.7;
+    transform: scaleY(1.2);
+}
+
+/* Status indicator badges with fixed dimensions */
+.status-badge-sm {
+    width: 12px;
+    height: 12px;
+    display: inline-block;
+}
+
+/* Theme Toggle Container */
+.theme-toggle-container {
+    background: transparent;
+    z-index: 1050;
+}
+
+.theme-toggle-container .theme-toggle {
+    background-color: var(--public-bg-surface);
+    border: 1px solid var(--public-border-color);
+    color: var(--public-text-secondary);
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: var(--public-shadow);
+}
+
+.theme-toggle-container .theme-toggle:hover {
+    background-color: var(--public-bg-surface-hover);
+    color: var(--public-text-primary);
+    border-color: var(--public-border-color-hover);
+    box-shadow: var(--public-shadow-hover);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .public-status-page {
+        padding: 0.5rem;
+    }
+    
+    .card {
+        border-radius: 8px;
+    }
+    
+    .list-group-item {
+        padding: 0.75rem 1rem;
+    }
+    
+    .display-5 {
+        font-size: 1.75rem;
+    }
+    
+    .theme-toggle-container {
+        top: 10px;
+        right: 10px;
+        padding: 0.5rem;
+    }
+}
+
+/* Loading and animation effects */
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+.loading .status-indicator {
+    animation: pulse 2s infinite;
+}
+
+/* Footer styling */
+footer {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--public-border-color);
+    color: var(--public-text-secondary);
+}
+
+footer a {
+    color: var(--public-text-secondary);
+    text-decoration: underline;
+}
+
+footer a:hover {
+    color: var(--brand-primary, #007bff);
+}
+
+/* Overall status card special styling */
+.overall-status-card {
+    background: linear-gradient(135deg, var(--public-bg-surface) 0%, var(--public-bg-surface) 100%);
+    border-left: 4px solid var(--status-success, #198754);
+}
+
+.overall-status-card.status-problem {
+    border-left-color: var(--status-danger, #dc3545);
+}
+
+.overall-status-card.status-warning {
+    border-left-color: var(--status-warning, #ffc107);
+}
+
+/* Typography improvements */
+.display-5 {
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.lead {
+    font-size: 1.1rem;
+    font-weight: 400;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Service name styling */
+.monitor-name {
+    font-weight: 600;
+    color: var(--public-text-primary);
+}
+
+.service-info {
+    font-size: 0.875rem;
+    color: var(--public-text-secondary);
+}
+
+/* Response time display */
+.response-time {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 
+                'Courier New', monospace;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+/* Status text styling */
+.status-text {
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.text-success.fw-semibold {
+    color: #198754 !important;
+}
+
+.text-danger.fw-semibold {
+    color: #dc3545 !important;
+}
+
+.text-warning.fw-semibold {
+    color: #ffc107 !important;
+}
+
+/* Flash messages for public pages */
+.flash-messages-container {
+    max-width: 600px;
+    width: 100%;
+    z-index: 1050;
+}
+
+.flash-messages-container .alert {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Accessibility improvements */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Focus improvements */
+.status-indicator:focus,
+.heartbeat-dot:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+    .public-status-page {
+        background: white !important;
+        color: black !important;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid #ddd;
+        background: white !important;
+    }
+    
+    .heartbeat-timeline {
+        background: #ddd;
+    }
+    
+    footer {
+        display: none;
+    }
+    
+    .theme-toggle-container {
+        display: none;
+    }
+}
+
+/* Override Bootstrap classes with CSS variables */
+.public-status-page .text-muted {
+    color: var(--public-text-muted) !important;
+}
+
+.public-status-page .bg-light {
+    background-color: var(--public-bg-body) !important;
+}
+
+.public-status-page .card-body {
+    color: var(--public-text-primary);
+}

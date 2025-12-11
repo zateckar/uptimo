@@ -8,6 +8,7 @@ from .notification import (
     NotificationChannelEditForm,
     TestNotificationForm,
 )
+from .public_status import PublicStatusPageForm, PublicStatusPageEditForm
 
 __all__ = [
     "LoginForm",
@@ -19,4 +20,6 @@ __all__ = [
     "NotificationChannelEditForm",
     "MonitorNotificationForm",
     "TestNotificationForm",
+    "PublicStatusPageForm",
+    "PublicStatusPageEditForm",
 ]

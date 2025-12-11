@@ -1,0 +1,159 @@
+{% extends "public/base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-10 col-xl-8">
+        <!-- Header Section -->
+        <header class="text-center mb-4">
+            {% if status_page.custom_header %}
+                <h1 class="display-5 fw-bold mb-3">{{ status_page.custom_header }}</h1>
+            {% else %}
+                <h1 class="display-5 fw-bold mb-3">System Status</h1>
+            {% endif %}
+            
+            {% if status_page.description %}
+                <p class="lead text-muted">{{ status_page.description }}</p>
+            {% endif %}
+        </header>
+
+        <!-- Overall Status -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body text-center py-3">
+                <div id="overall-status">
+                    {% if monitors|length == 0 %}
+                        <div class="d-inline-flex align-items-center">
+                            <span class="badge bg-secondary me-2 status-badge-sm"></span>
+                            <span class="text-muted">No monitors configured</span>
+                        </div>
+                    {% else %}
+                        {% set all_up = monitors|selectattr('status', 'equalto', 'up')|list|length == monitors|length %}
+                        {% if all_up %}
+                            <div class="d-inline-flex align-items-center">
+                                <span class="badge bg-success me-2 status-badge-sm"></span>
+                                <span class="text-success fw-semibold">All Systems Operational</span>
+                            </div>
+                        {% else %}
+                            {% set has_down = monitors|selectattr('status', 'equalto', 'down')|list|length > 0 %}
+                            {% if has_down %}
+                                <div class="d-inline-flex align-items-center">
+                                    <span class="badge bg-danger me-2 status-badge-sm"></span>
+                                    <span class="text-danger fw-semibold">System Issues Detected</span>
+                                </div>
+                            {% else %}
+                                <div class="d-inline-flex align-items-center">
+                                    <span class="badge bg-warning me-2 status-badge-sm"></span>
+                                    <span class="text-warning fw-semibold">System Degraded</span>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Monitor List -->
+        {% if monitors|length > 0 %}
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Services</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for data in monitors %}
+                            {% set monitor = data %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center flex-grow-1">
+                                        <!-- Status Indicator -->
+                                        <div class="me-3">
+                                            {% if data.status == 'up' %}
+                                                <span class="badge bg-success status-badge-sm" title="Operational"></span>
+                                            {% elif data.status == 'down' %}
+                                                <span class="badge bg-danger status-badge-sm" title="Down"></span>
+                                            {% else %}
+                                                <span class="badge bg-secondary status-badge-sm" title="Unknown"></span>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- Monitor Info -->
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">{{ monitor.name }}</h6>
+                                            <div class="small text-muted">
+                                                {% if data.last_check %}
+                                                    Last checked: {{ data.last_check|local_time }}
+                                                {% else %}
+                                                    No data available
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Status Text & Response Time -->
+                                    <div class="text-end">
+                                        <div class="mb-1">
+                                            {% if data.status == 'up' %}
+                                                <span class="text-success fw-semibold">Operational</span>
+                                            {% elif data.status == 'down' %}
+                                                <span class="text-danger fw-semibold">Down</span>
+                                            {% else %}
+                                                <span class="text-muted">Unknown</span>
+                                            {% endif %}
+                                        </div>
+                                        {% if data.response_time is not none %}
+                                            <div class="small text-muted">
+                                                {{ "%.0f"|format(data.response_time) }}ms
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <!-- Heartbeat visualization -->
+                                {% if data.recent_checks and data.recent_checks|length > 0 %}
+                                <div class="mt-2 w-100">
+                                    <div class="heartbeat-timeline">
+                                        {% for check in data.recent_checks[:50]|reverse %}
+                                            {% if check.status == 'up' %}
+                                                <span class="heartbeat-dot bg-success" title="{{ check.timestamp|timeago }}"></span>
+                                            {% elif check.status == 'down' %}
+                                                <span class="heartbeat-dot bg-danger" title="{{ check.timestamp|timeago }}"></span>
+                                            {% else %}
+                                                <span class="heartbeat-dot bg-secondary" title="{{ check.timestamp|timeago }}"></span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <!-- No monitors message -->
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <div class="text-muted">
+                        <i class="bi bi-info-circle display-4 mb-3"></i>
+                        <h5>No monitors configured</h5>
+                        <p>This status page doesn't have any monitors assigned to it.</p>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Footer -->
+        <footer class="text-center mt-4 text-muted small">
+            <div class="row">
+                <div class="col-12">
+                    {% if last_updated %}
+                        Last updated: {{ last_updated|local_time }}
+                    {% endif %}
+                </div>
+                <div class="col-12 mt-2">
+                    Powered by <a href="#" class="text-decoration-none">Uptimo</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+</div>
+{% endblock %}

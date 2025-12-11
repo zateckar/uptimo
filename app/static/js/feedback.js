@@ -342,9 +342,8 @@ const FeedbackManager = {
         let container = document.getElementById('toastContainer');
         if (!container) {
             container = document.createElement('div');
-            container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            container.className = 'toast-container position-fixed bottom-0 end-0 p-3 toast-container-zindex-9999';
             container.id = 'toastContainer';
-            container.style.zIndex = '9999';
             container.setAttribute('aria-live', 'polite');
             container.setAttribute('aria-label', 'Notifications');
             document.body.appendChild(container);

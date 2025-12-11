@@ -88,9 +88,15 @@ fix_*.py
 migrate_*.py
 run.py
 docs/
+tests/
+app/cli/
+cli/
+scripts/
 
 # Temporary files
 tmp/
 temp/
 *.tmp
 DISCOVERIES.md
+.kilocode/
+

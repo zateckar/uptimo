@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Create Public Status Page{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Create Public Status Page</h1>
+        <a href="{{ url_for('admin.public_status_pages') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Status Pages
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Status Page Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <!-- Basic Information -->
+                        <div class="mb-4">
+                            <h6><i class="bi bi-info-circle"></i> Basic Information</h6>
+                            <hr>
+                            
+                            <div class="mb-3">
+                                {{ form.custom_header.label(class="form-label") }}
+                                {{ form.custom_header(class="form-control" + (" is-invalid" if form.custom_header.errors else "")) }}
+                                {% if form.custom_header.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.custom_header.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">The main heading displayed on your status page. Leave empty for default header.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                {{ form.description.label(class="form-label") }}
+                                {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else ""), rows="3") }}
+                                {% if form.description.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.description.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">A description that appears below the header on your status page.</div>
+                            </div>
+                        </div>
+
+                        <!-- URL Configuration -->
+                        <div class="mb-4">
+                            <h6><i class="bi bi-link"></i> URL Configuration</h6>
+                            <hr>
+                            
+                            <div class="mb-3">
+                                {{ form.url_type.label(class="form-label") }}
+                                {{ form.url_type(class="form-select" + (" is-invalid" if form.url_type.errors else "")) }}
+                                {% if form.url_type.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.url_type.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">
+                                    <strong>Hidden UUID:</strong> Secure, hard-to-guess URL for private sharing<br>
+                                    <strong>Simple Path:</strong> Easy-to-remember /status URL (only one can be active)
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Monitor Selection -->
+                        <div class="mb-4">
+                            <h6><i class="bi bi-check2-square"></i> Monitor Selection</h6>
+                            <hr>
+                            
+                            <div class="mb-3">
+                                {% if form.selected_monitors.choices %}
+                                    {% for monitor in form.selected_monitors %}
+                                        <div class="form-check">
+                                            {{ monitor(class="form-check-input" + (" is-invalid" if form.selected_monitors.errors else "")) }}
+                                            {{ monitor.label(class="form-check-label") }}
+                                        </div>
+                                    {% endfor %}
+                                    {% if form.selected_monitors.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.selected_monitors.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        No monitors available. <a href="{{ url_for('dashboard.index') }}">Create some monitors first</a> before setting up a public status page.
+                                    </div>
+                                {% endif %}
+                                <div class="form-text">Select which monitors to display on this public status page. At least one monitor must be selected.</div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin.public_status_pages') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Create Status Page
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Preview Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-eye"></i> Preview
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="status-preview small">
+                        <h4 id="preview-header" class="text-center mb-3">{{ form.custom_header.data or 'System Status' }}</h4>
+                        <p id="preview-description" class="text-center text-muted mb-4">
+                            {{ form.description.data or 'Check the status of our services and systems.' }}
+                        </p>
+                        
+                        <div class="mb-3">
+                            <strong class="d-block mb-2">URL:</strong>
+                            <code id="preview-url" class="d-block p-2 bg-light rounded">
+                                {{ url_for('public_status.public_status_simple', _external=True) if form.url_type.data == 'simple' else 'https://your-domain.com/status/[unique-uuid]' }}
+                            </code>
+                        </div>
+
+                        <div class="mb-3">
+                            <strong class="d-block mb-2">Monitors:</strong>
+                            <div id="preview-monitors" class="small">
+                                {% if form.selected_monitors.choices %}
+                                    {% for choice_id, choice_text in form.selected_monitors.choices %}
+                                        <div class="d-flex justify-content-between align-items-center py-1 border-bottom d-none"
+                                             id="preview-monitor-{{ choice_id }}">
+                                            <span>{{ choice_text }}</span>
+                                            <span class="badge bg-success">Up</span>
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted">No monitors available</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="text-center">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i>
+                                This is a preview of how your status page will appear to visitors.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Notice -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-shield-check"></i> Security Notice
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="small mb-0">
+                        <li>Only monitor names and status will be visible</li>
+                        <li>No sensitive configuration data is exposed</li>
+                        <li>URLs for hidden UUID pages are secure and unguessable</li>
+                        <li>You can deactivate any status page at any time</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/public-status.js') }}"></script>
+{% endblock %}

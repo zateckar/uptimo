@@ -185,8 +185,8 @@
       <div class="mb-1"><small class="text-muted">Last Updated:</small> {{ updated_date }}</div>
       {% endif %}
       
-      {% if domain_check.days_to_expiration is not none %}
-        {% set days = domain_check.days_to_expiration %}
+      {% if domain_check.get('days_to_expiration') is not none %}
+        {% set days = domain_check.get('days_to_expiration') %}
         {% if days < 0 %}
           {% set exp_class = 'text-danger' %}
         {% elif days <= 30 %}
@@ -195,6 +195,8 @@
           {% set exp_class = 'text-success' %}
         {% endif %}
       <div class="mb-2"><small class="text-muted">Days to Expiration:</small> <span class="{{ exp_class }}">{{ days }}</span></div>
+      {% elif domain_check.expiration_date %}
+        <div class="mb-2"><small class="text-muted">Expiration Date:</small> {{ domain_check.expiration_date[0] if domain_check.expiration_date is iterable and domain_check.expiration_date is not string else domain_check.expiration_date }}</div>
       {% endif %}
       
       {# Name servers #}
@@ -278,8 +280,8 @@
 {# Macro for Domain Summary #}
 {% macro render_domain_summary(domain_check, monitor) %}
 {% if domain_check and domain_check.domain and not domain_check.error %}
-  {% set days = domain_check.days_to_expiration %}
-  {% if days is not none %}
+  {% if domain_check.get('days_to_expiration') is not none %}
+    {% set days = domain_check.get('days_to_expiration') %}
     {% if days < 0 %}
       {% set status = 'EXPIRED' %}
       {% set status_class = 'bg-danger' %}
@@ -296,6 +298,11 @@
       {% set days_text = days ~ ' days' %}
       {% set days_class = 'text-success' %}
     {% endif %}
+  {% elif domain_check.expiration_date %}
+    {% set status = 'ACTIVE' %}
+    {% set status_class = 'bg-info' %}
+    {% set days_text = 'Date Available' %}
+    {% set days_class = 'text-info' %}
   {% else %}
     {% set status = 'ACTIVE' %}
     {% set status_class = 'bg-info' %}

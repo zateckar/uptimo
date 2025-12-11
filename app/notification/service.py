@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Optional
 
 from app import db
 from app.models.notification import (
@@ -15,8 +16,13 @@ class NotificationService:
     """Service for managing notifications"""
 
     def send_monitor_notification(
-        self, monitor, event_type, title, message, incident=None
-    ):
+        self,
+        monitor: Any,
+        event_type: str,
+        title: str,
+        message: str,
+        incident: Optional[Any] = None,
+    ) -> bool:
         """Send notification for a monitor event"""
         try:
             # Get all notification settings for this monitor
@@ -137,14 +143,14 @@ class NotificationService:
 
     def get_notification_history(
         self,
-        monitor_id=None,
-        channel_id=None,
-        event_type=None,
-        start_date=None,
-        end_date=None,
-        page=1,
-        per_page=50,
-    ):
+        monitor_id: Optional[int] = None,
+        channel_id: Optional[int] = None,
+        event_type: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        page: int = 1,
+        per_page: int = 50,
+    ) -> Any:
         """Get notification history with filters"""
         query = NotificationLog.query
 
@@ -172,7 +178,7 @@ class NotificationService:
 
         return notifications
 
-    def get_notification_stats(self, days=7):
+    def get_notification_stats(self, days: int = 7) -> Dict[str, Any]:
         """Get notification statistics for the last N days"""
         start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
@@ -235,7 +241,7 @@ class NotificationService:
             "by_channel_type": channel_type_stats,
         }
 
-    def cleanup_old_notification_logs(self, days_to_keep=90):
+    def cleanup_old_notification_logs(self, days_to_keep: int = 90) -> int:
         """Clean up old notification logs"""
         try:
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
@@ -254,7 +260,7 @@ class NotificationService:
             db.session.rollback()
             return 0
 
-    def test_notification_channel(self, channel_id):
+    def test_notification_channel(self, channel_id: int) -> tuple[bool, str]:
         """Test a notification channel"""
         try:
             channel = NotificationChannel.query.get(channel_id)

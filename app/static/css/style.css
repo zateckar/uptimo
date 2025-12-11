@@ -453,6 +453,28 @@ code, pre {
     color: var(--text-primary);
 }
 
+/* Form select dropdown options styling */
+.form-select option {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+/* Dark mode specific form select styling */
+[data-theme="dark"] .form-select {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .form-select option {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .form-select:focus {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+}
+
 .form-control::placeholder {
     color: var(--text-tertiary);
 }
@@ -1139,4 +1161,196 @@ canvas {
 /* Login Page */
 .min-vh-75 {
     min-height: 75vh;
+}
+
+/* 404 Error Page */
+.min-vh-70 {
+    min-height: 70vh;
+}
+
+/* ============================================================================
+   CSP-COMPLIANT COLOR PREVIEW CLASSES
+   ============================================================================ */
+
+/* Color preview classes for admin settings */
+.color-preview {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    border: 2px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
+}
+
+.color-preview:hover {
+    border-color: var(--brand-primary);
+    transform: scale(1.05);
+    box-shadow: var(--shadow-md);
+}
+
+/* Individual color classes for dynamic color previews */
+.color-preview-primary { background-color: #59bc87; }
+.color-preview-primary-hover { background-color: #45a676; }
+.color-preview-success { background-color: #22c55e; }
+.color-preview-success-bg { background-color: #f0fdf4; }
+.color-preview-danger { background-color: #dc2626; }
+.color-preview-danger-bg { background-color: #fef2f2; }
+.color-preview-warning { background-color: #f59e0b; }
+.color-preview-warning-bg { background-color: #fffbeb; }
+.color-preview-info { background-color: #06b6d4; }
+.color-preview-info-bg { background-color: #ecfeff; }
+.color-preview-unknown { background-color: #6b7280; }
+.color-preview-unknown-bg { background-color: #f3f4f6; }
+.color-preview-primary-subtle { background-color: rgba(168, 255, 204, 0.15); }
+
+/* Dark mode color preview classes */
+.color-preview-dark-primary { background-color: #3b82f6; }
+.color-preview-dark-primary-hover { background-color: #60a5fa; }
+.color-preview-dark-primary-subtle { background-color: rgba(59, 130, 246, 0.15); }
+.color-preview-dark-success { background-color: #4ade80; }
+.color-preview-dark-success-bg { background-color: #052e16; }
+.color-preview-dark-danger { background-color: #f87171; }
+.color-preview-dark-danger-bg { background-color: #1f0713; }
+.color-preview-dark-warning { background-color: #fbbf24; }
+.color-preview-dark-warning-bg { background-color: #1c1305; }
+.color-preview-dark-info { background-color: #38bdf8; }
+.color-preview-dark-info-bg { background-color: #071926; }
+.color-preview-dark-unknown { background-color: #9ca3af; }
+.color-preview-dark-unknown-bg { background-color: #1f2937; }
+
+/* Icon neutral color class */
+.icon-neutral {
+    color: #ccc;
+}
+
+/* Toast container z-index classes */
+.toast-container-zindex-1050 {
+    z-index: 1050;
+}
+
+.toast-container-zindex-9999 {
+    z-index: 9999;
+}
+
+/* ============================================================================
+   OUTAGES LIST STYLING
+   ============================================================================ */
+
+/* Outages List Container */
+#outagesListContainer {
+    padding: var(--space-lg);
+}
+
+/* Outages Filter Buttons */
+.outages-filter-btn {
+    margin-right: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.outages-filter-btn.active {
+    background-color: var(--brand-primary);
+    border-color: var(--brand-primary);
+    color: #ffffff;
+}
+
+/* Outage Items */
+.outage-item {
+    border-left: 4px solid transparent;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.outage-item.new {
+    border-left-color: var(--brand-primary);
+    background-color: var(--brand-primary-subtle);
+    font-weight: 500;
+}
+
+.outage-item.new:hover {
+    background-color: var(--brand-primary-subtle);
+    opacity: 0.9;
+}
+
+.outage-item.seen:hover {
+    background-color: var(--bg-surface-hover);
+}
+
+/* Pulse animation for new outages */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(89, 188, 135, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(89, 188, 135, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(89, 188, 135, 0);
+    }
+}
+
+.outage-item.new {
+    animation: pulse 2s infinite;
+}
+
+/* Outage status indicators */
+.outage-status-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.outage-duration {
+    font-size: 0.8125rem;
+    opacity: 0.8;
+}
+
+/* Monitor link styling */
+.outage-monitor-link {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.outage-monitor-link:hover {
+    color: var(--brand-primary);
+    text-decoration: underline;
+}
+
+/* Empty state styling */
+.outages-empty-state {
+    text-align: center;
+    padding: var(--space-xl) 0;
+    color: var(--text-tertiary);
+}
+
+.outages-loading {
+    text-align: center;
+    padding: var(--space-lg) 0;
+    color: var(--text-tertiary);
+}
+
+/* Incident Card Layout Fix */
+.incident-layout {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    justify-content: space-between;
+}
+
+.incident-left {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+}
+
+.incident-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+    flex-shrink: 0;
 }

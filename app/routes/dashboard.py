@@ -12,12 +12,14 @@ from flask import (
     flash,
     Response,
     request,
+    current_app,
 )
 from flask_login import login_required, current_user
 
 from app import db
 from app.models.monitor import Monitor, MonitorType, CheckInterval
 from app.models.incident import Incident
+from app.models.user_incident_view import UserIncidentView
 from app.models.notification import NotificationChannel
 from app.models.check_result import CheckResult
 from app.forms.monitor import MonitorForm, MonitorEditForm
@@ -208,8 +210,8 @@ def monitor_heartbeat(id: int):
     # Get recent checks for heartbeat (last 50)
     recent_checks = monitor.get_recent_checks(50)
 
-    # Use columnar format for better compression
-    return jsonify({"checks": CheckResult.to_columnar_dict(recent_checks)})
+    # Use chart-optimized columnar format for better compression
+    return jsonify({"checks": CheckResult.to_chart_columnar_dict(recent_checks)})
 
 
 @bp.route("/monitor/<int:id>/checks")
@@ -256,8 +258,9 @@ def monitor_checks(id: int):
     # Execute query and get results
     checks = checks_query.all()
 
-    # Use columnar format for better compression
-    return jsonify({"checks": CheckResult.to_columnar_dict(checks)})
+    # Use chart-optimized columnar format for better compression
+    # Excludes heavy additional_data (certificate/domain info) not needed for charts
+    return jsonify({"checks": CheckResult.to_chart_columnar_dict(checks)})
 
 
 @bp.route("/overview-stats")
@@ -322,9 +325,15 @@ def create():
             string_match=form.string_match.data,
             string_match_type=form.string_match_type.data,
             json_path_match=form.json_path_match.data,
+            http_method=form.http_method.data,
+            http_headers=form.http_headers.data,
+            http_body=form.http_body.data,
             verify_ssl=form.verify_ssl.data,
             check_cert_expiration=form.check_cert_expiration.data,
             cert_expiration_threshold=form.cert_expiration_threshold.data or 30,
+            http_ssl_ca_cert=form.http_ssl_ca_cert.data,
+            http_ssl_client_cert=form.http_ssl_client_cert.data,
+            http_ssl_client_key=form.http_ssl_client_key.data,
             check_domain=form.check_domain.data,
             expected_domain=form.expected_domain.data,
             kafka_security_protocol=form.kafka_security_protocol.data,
@@ -388,9 +397,15 @@ def create_http():
                 string_match=form.string_match.data,
                 string_match_type=form.string_match_type.data,
                 json_path_match=form.json_path_match.data,
+                http_method=form.http_method.data,
+                http_headers=form.http_headers.data,
+                http_body=form.http_body.data,
                 verify_ssl=form.verify_ssl.data,
                 check_cert_expiration=form.check_cert_expiration.data,
                 cert_expiration_threshold=form.cert_expiration_threshold.data or 30,
+                http_ssl_ca_cert=form.http_ssl_ca_cert.data,
+                http_ssl_client_cert=form.http_ssl_client_cert.data,
+                http_ssl_client_key=form.http_ssl_client_key.data,
                 check_domain=form.check_domain.data,
                 expected_domain=form.expected_domain.data,
                 is_active=form.is_active.data,
@@ -500,6 +515,12 @@ def create_tcp():
                 check_interval=CheckInterval(int(form.check_interval.data)),
                 timeout=form.timeout.data or 30,
                 response_time_threshold=form.response_time_threshold.data,
+                verify_ssl=form.verify_ssl.data,
+                check_cert_expiration=form.check_cert_expiration.data,
+                cert_expiration_threshold=form.cert_expiration_threshold.data or 30,
+                http_ssl_ca_cert=form.http_ssl_ca_cert.data,
+                http_ssl_client_cert=form.http_ssl_client_cert.data,
+                http_ssl_client_key=form.http_ssl_client_key.data,
                 check_domain=form.check_domain.data,
                 expected_domain=form.expected_domain.data,
                 is_active=form.is_active.data,
@@ -545,6 +566,12 @@ def create_ping():
                 check_interval=CheckInterval(int(form.check_interval.data)),
                 timeout=form.timeout.data or 30,
                 response_time_threshold=form.response_time_threshold.data,
+                verify_ssl=form.verify_ssl.data,
+                check_cert_expiration=form.check_cert_expiration.data,
+                cert_expiration_threshold=form.cert_expiration_threshold.data or 30,
+                http_ssl_ca_cert=form.http_ssl_ca_cert.data,
+                http_ssl_client_cert=form.http_ssl_client_cert.data,
+                http_ssl_client_key=form.http_ssl_client_key.data,
                 check_domain=form.check_domain.data,
                 expected_domain=form.expected_domain.data,
                 is_active=form.is_active.data,
@@ -634,11 +661,17 @@ def edit(id: int):
             monitor.string_match = form.string_match.data
             monitor.string_match_type = form.string_match_type.data
             monitor.json_path_match = form.json_path_match.data
+            monitor.http_method = form.http_method.data
+            monitor.http_headers = form.http_headers.data
+            monitor.http_body = form.http_body.data
             monitor.verify_ssl = form.verify_ssl.data
             monitor.check_cert_expiration = form.check_cert_expiration.data
             monitor.cert_expiration_threshold = (
                 form.cert_expiration_threshold.data or 30
             )
+            monitor.http_ssl_ca_cert = form.http_ssl_ca_cert.data
+            monitor.http_ssl_client_cert = form.http_ssl_client_cert.data
+            monitor.http_ssl_client_key = form.http_ssl_client_key.data
             monitor.check_domain = form.check_domain.data
             monitor.expected_domain = form.expected_domain.data
             monitor.kafka_security_protocol = form.kafka_security_protocol.data
@@ -871,7 +904,7 @@ def stream():
                     monitor_data = monitor.to_dict(include_recent_checks=False)
                     # Always include recent_checks for heartbeat visualization
                     # Use columnar format for better compression
-                    recent_checks = CheckResult.to_columnar_dict(
+                    recent_checks = CheckResult.to_chart_columnar_dict(
                         monitor.get_recent_checks(25)
                     )
                     monitor_data["recent_checks"] = recent_checks
@@ -927,7 +960,7 @@ def stream():
                             monitor_data = monitor.to_dict(include_recent_checks=False)
                             # Always include recent_checks for heartbeat visualization
                             # Use columnar format for better compression
-                            recent_checks = CheckResult.to_columnar_dict(
+                            recent_checks = CheckResult.to_chart_columnar_dict(
                                 monitor.get_recent_checks(25)
                             )
                             monitor_data["recent_checks"] = recent_checks
@@ -1065,10 +1098,10 @@ def monitor_stream(id: int):
                     )
 
                     # Use columnar format for better compression
-                    recent_checks_columnar = CheckResult.to_columnar_dict(
+                    recent_checks_columnar = CheckResult.to_chart_columnar_dict(
                         recent_checks_heartbeat
                     )
-                    filtered_checks_columnar = CheckResult.to_columnar_dict(
+                    filtered_checks_columnar = CheckResult.to_chart_columnar_dict(
                         filtered_checks
                     )
 
@@ -1127,10 +1160,10 @@ def monitor_stream(id: int):
                         )
 
                         # Use columnar format for better compression
-                        recent_checks_columnar = CheckResult.to_columnar_dict(
+                        recent_checks_columnar = CheckResult.to_chart_columnar_dict(
                             recent_checks_heartbeat
                         )
-                        filtered_checks_columnar = CheckResult.to_columnar_dict(
+                        filtered_checks_columnar = CheckResult.to_chart_columnar_dict(
                             filtered_checks
                         )
 
@@ -1214,3 +1247,108 @@ def monitor_stream(id: int):
             "X-Accel-Buffering": "no",  # Disable buffering for nginx
         },
     )
+
+
+@bp.route("/incidents")
+@login_required
+def get_all_incidents():
+    """Get all incidents for the current user with viewed status."""
+    from sqlalchemy import desc
+
+    try:
+        # Get all incidents for user's monitors, with active incidents first
+        incidents_query = (
+            Incident.query.join(Monitor)
+            .filter(Monitor.user_id == current_user.id)
+            .order_by(
+                Incident.status.desc(), desc(Incident.started_at)
+            )  # active first, then by started_at desc
+            .limit(50)  # Reasonable limit for dashboard
+        )
+        incidents = incidents_query.all()
+
+        # Get viewed incident IDs for this user as a set for efficient lookup
+        viewed_incident_ids = set(
+            view.incident_id
+            for view in UserIncidentView.query.filter_by(user_id=current_user.id).all()
+        )
+
+        # Build response with viewed status
+        incidents_data = []
+        for incident in incidents:
+            incident_dict = incident.to_dict()
+            # Add monitor name to the incident data
+            incident_dict["monitor_name"] = incident.monitor.name
+            incident_dict["is_viewed"] = incident.id in viewed_incident_ids
+            incidents_data.append(incident_dict)
+
+        return jsonify(
+            {
+                "incidents": incidents_data,
+                "unseen_count": len([i for i in incidents_data if not i["is_viewed"]]),
+            }
+        )
+    except Exception as e:
+        # Log the error for debugging
+        current_app.logger.error(f"Error in get_all_incidents: {str(e)}")
+        return jsonify({"error": "Failed to load incidents"}), 500
+
+
+@bp.route("/incidents/<int:incident_id>/view", methods=["POST"])
+@login_required
+def mark_incident_viewed(incident_id: int):
+    """Mark an incident as viewed by the current user."""
+    from sqlalchemy import and_
+
+    # Verify incident belongs to user's monitor
+    (
+        Incident.query.join(Monitor)
+        .filter(and_(Incident.id == incident_id, Monitor.user_id == current_user.id))
+        .first_or_404()
+    )
+
+    # Check if already viewed
+    existing_view = UserIncidentView.query.filter_by(
+        user_id=current_user.id, incident_id=incident_id
+    ).first()
+
+    if not existing_view:
+        # Mark as viewed
+        view_record = UserIncidentView(current_user.id, incident_id)
+        db.session.add(view_record)
+        db.session.commit()
+
+    return jsonify({"status": "success"})
+
+
+@bp.route("/incidents/<int:incident_id>/resolve", methods=["POST"])
+@login_required
+def resolve_incident(incident_id: int):
+    """Manually resolve an incident."""
+    from sqlalchemy import and_
+
+    # Verify incident belongs to user's monitor
+    incident = (
+        Incident.query.join(Monitor)
+        .filter(and_(Incident.id == incident_id, Monitor.user_id == current_user.id))
+        .first_or_404()
+    )
+
+    if incident.status != "active":
+        return jsonify({"error": "Incident is already resolved"}), 400
+
+    try:
+        # Resolve the incident
+        incident.resolve()
+        db.session.commit()
+        return jsonify(
+            {
+                "status": "success",
+                "resolved_at": incident.resolved_at.isoformat(),
+                "duration_formatted": incident.get_duration_formatted(),
+            }
+        )
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error resolving incident {incident_id}: {str(e)}")
+        return jsonify({"error": "Failed to resolve incident"}), 500

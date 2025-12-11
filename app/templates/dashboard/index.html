@@ -8,9 +8,9 @@
     <div class="col-md-4 col-lg-3 bg-surface h-100 overflow-hidden d-flex flex-column">
         <div class="p-3 d-flex justify-content-between align-items-center bg-body">
             <h6 class="mb-0 fw-bold text-uppercase text-muted small ls-1">Monitors</h6>
-            <div class="btn-group">
-                <button type="button" class="btn btn-sm btn-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-plus-lg"></i> 
+            <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-sm btn-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Add Monitor">
+                    <i class="bi bi-plus-lg"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><a class="dropdown-item" href="{{ url_for('dashboard.create_http') }}">
@@ -26,6 +26,9 @@
                         <i class="bi bi-reception-4 me-2"></i>Ping
                     </a></li>
                 </ul>
+                <button type="button" class="btn btn-sm btn-primary" id="showOutagesBtn" title="Show Outages">
+                    <i class="bi bi-list-ul"></i> Outages
+                </button>
             </div>
         </div>
         
@@ -91,7 +94,7 @@
     
     <!-- Main Content Area -->
     <div class="col-md-8 col-lg-9 bg-body h-100 overflow-auto">
-        <!-- Welcome Message when no monitor selected -->
+        <!-- Welcome Message when no monitor selected and no monitors exist -->
         <div id="welcomeMessage" class="d-flex flex-column align-items-center justify-content-center h-100 p-5 text-center">
             <div class="welcome-icon-circle p-5 rounded-circle shadow-sm mb-4">
                 <i class="bi bi-activity text-primary welcome-icon-large"></i>
@@ -120,6 +123,39 @@
                 </ul>
             </div>
             {% endif %}
+        </div>
+        
+        <!-- Outages List (shown when no monitor selected and monitors exist) -->
+        <div id="outagesListContainer" class="d-none d-flex flex-column h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0 fw-bold">Recent Outages</h5>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-secondary filter-btn active" data-filter="all">
+                        All
+                    </button>
+                    <button type="button" class="btn btn-outline-warning filter-btn" data-filter="unseen">
+                        New
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary filter-btn" data-filter="active">
+                        Active
+                    </button>
+                </div>
+            </div>
+            
+            <div id="outagesList" class="overflow-auto flex-grow-1">
+                <div class="text-center p-5 text-muted">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading outages...</span>
+                    </div>
+                    <p class="mt-2 mb-0 small">Loading recent outages...</p>
+                </div>
+            </div>
+            
+            <div class="mt-3">
+                <small class="text-muted">
+                    <span id="outageStats">Loading statistics...</span>
+                </small>
+            </div>
         </div>
         
         <!-- Monitor Details (Hidden by default) -->

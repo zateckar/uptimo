@@ -38,6 +38,33 @@ const MonitorManager = {
             });
     },
     
+    // Deselect current monitor and show outages list
+    deselectMonitor: function() {
+        // Clear selected monitor
+        Uptimo.state.selectedMonitorId = null;
+        
+        // Remove active class from all monitors
+        document.querySelectorAll('.monitor-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Hide monitor details and show outages list
+        document.getElementById('monitorDetails').classList.add('d-none');
+        document.getElementById('outagesListContainer').classList.remove('d-none');
+        document.getElementById('welcomeMessage').classList.add('d-none');
+        
+        // Switch to global SSE stream
+        SSEManager.switchMonitor(null);
+        
+        // Clear monitor from cookie
+        MonitorSelectionManager.saveSelectedMonitor(null);
+        
+        // Refresh outages list
+        if (typeof OutagesManager !== 'undefined') {
+            OutagesManager.loadOutages();
+        }
+    },
+    
     // Load dynamic check data from specialized endpoints
     loadDynamicData: function(monitorId, timespan) {
         // Load chart data
@@ -90,8 +117,9 @@ const MonitorManager = {
     displayDetails: function(data) {
         const monitor = data.monitor;
         
-        // Hide welcome, show details
+        // Hide welcome and outages list, show details
         document.getElementById('welcomeMessage').classList.add('d-none');
+        document.getElementById('outagesListContainer').classList.add('d-none');
         document.getElementById('monitorDetails').classList.remove('d-none');
         
         // Update header
@@ -206,12 +234,12 @@ const MonitorManager = {
         const html = incidents.map(incident => `
             <div class="alert alert-${incident.is_active ? 'danger' : 'info'} mb-2 py-2 incident-${incident.is_active ? 'active' : 'resolved'} position-relative">
                 <div class="small incident-content-padding">
-                    <strong>${incident.is_active ? '🔴 Active' : '🟢 Resolved'}</strong>
+                    <strong>${incident.is_active ? '🔴' : '🟢'}</strong>
                     <span class="text-muted ms-2">${Utils.formatDateTime(incident.started_at)}</span>
                     ${incident.resolved_at ? `<span class="text-muted ms-2">→ ${Utils.formatDateTime(incident.resolved_at)}</span>` : ''}
                     ${incident.description ? `: <span class="text-danger">  ⚠ ${incident.description}</span>` : ''}
                 </div>
-                <span class="badge text-lowercase bg-dark fs-6 position-absolute top-50 end-0 translate-middle-y me-2">${Utils.formatDuration(incident.duration)}</span>
+                <span class="badge text-lowercase bg-dark position-absolute top-50 end-0 translate-middle-y me-2">${Utils.formatDuration(incident.duration)}</span>
             </div>
         `).join('');
         
