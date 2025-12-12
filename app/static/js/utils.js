@@ -107,8 +107,29 @@ const MonitorSelectionManager = {
 const Utils = {
     // Format date/time using server's configured timezone
     formatDateTime: function(dateString) {
+        if (!dateString) {
+            return 'Invalid Data';
+        }
+        
         const date = new Date(dateString);
-        const timezone = window.APP_TIMEZONE || 'UTC';
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+            console.warn(`Invalid date string: '${dateString}'`);
+            return 'Invalid Data';
+        }
+        
+        // Ensure APP_TIMEZONE is available with multiple fallbacks
+        let timezone = window.APP_TIMEZONE;
+        if (!timezone) {
+            // Try to get timezone from Uptimo config
+            if (window.Uptimo && window.Uptimo.config && window.Uptimo.config.timezone) {
+                timezone = window.Uptimo.config.timezone;
+                window.APP_TIMEZONE = timezone; // Set it for future use
+            } else {
+                timezone = 'UTC';
+            }
+        }
         
         try {
             // Format with the server's configured timezone

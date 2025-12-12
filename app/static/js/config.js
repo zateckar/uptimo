@@ -15,6 +15,7 @@ window.Uptimo = {
         toastTimeout: 5000,
         sseReconnectDelay: 5000, // 5 seconds
         timezone: appTimezone,
+        debug: false, // Debug mode disabled by default
     },
     state: {
         selectedMonitorId: null,

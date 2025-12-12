@@ -194,6 +194,10 @@ const ChartManager = {
         const data = chartData.values;
         const statuses = chartData.statuses;
         
+        // CRITICAL FIX: Use the direct tooltip check data for precise tooltip lookup
+        // This ensures tooltips show the correct data, especially for high-frequency monitors (30s intervals)
+        const tooltipChecks = chartData.tooltipChecks || [];
+        
         // Create color arrays based on status
         const pointColors = statuses.map(status => {
             if (status === 'up') return '#198754';  // green
@@ -249,9 +253,156 @@ const ChartManager = {
                             mode: 'index',
                             intersect: false,
                             callbacks: {
+                                title: function(context) {
+                                    const index = context[0].dataIndex;
+                                    const label = labels[index];
+                                    
+                                    // Debug logging to help identify the issue
+                                    if (console.debug && Uptimo.config.debug) {
+                                        console.debug('Chart tooltip - label:', label, 'index:', index);
+                                        console.debug('Chart tooltip - sortedChecks length:', sortedChecksForTooltip ? sortedChecksForTooltip.length : 'undefined');
+                                        if (sortedChecksForTooltip && sortedChecksForTooltip.length > 0) {
+                                            console.debug('Chart tooltip - first sorted check:', sortedChecksForTooltip[0]);
+                                        }
+                                    }
+                                    
+                                    // CRITICAL FIX: Use direct tooltip check data instead of timestamp matching
+                                    // This ensures tooltips show the correct data, especially for high-frequency monitors (30s intervals)
+                                    let check = null;
+                                    
+                                    // Use the precise tooltip check data if available
+                                    if (tooltipChecks.length > 0 && index < tooltipChecks.length) {
+                                        check = tooltipChecks[index];
+                                    }
+                                    
+                                    // Fallback: try to find check by timestamp if direct lookup failed
+                                    if (!check && typeof label === 'string') {
+                                        const labelTime = new Date(label).getTime();
+                                        if (!isNaN(labelTime)) {
+                                            check = sortedChecksForTooltip.find(c => {
+                                                const checkTime = new Date(c.t).getTime();
+                                                // Allow a small time window for matching (within 1 minute)
+                                                return Math.abs(checkTime - labelTime) < 60000;
+                                            });
+                                        }
+                                    }
+                                    
+                                    // Use the original timestamp from the check if found, otherwise use the label
+                                    if (check && check.t) {
+                                        // Ensure APP_TIMEZONE is available before formatting
+                                        if (!window.APP_TIMEZONE && window.Uptimo && window.Uptimo.config && window.Uptimo.config.timezone) {
+                                            window.APP_TIMEZONE = window.Uptimo.config.timezone;
+                                        }
+                                        const formatted = Utils.formatDateTime(check.t);
+                                        // If formatting still returns "Invalid Data", use a fallback with timezone
+                                        if (formatted === 'Invalid Data') {
+                                            const timezone = window.APP_TIMEZONE || 'UTC';
+                                            return new Date(check.t).toLocaleString('en-US', {
+                                                timeZone: timezone,
+                                                year: 'numeric',
+                                                month: '2-digit',
+                                                day: '2-digit',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                second: '2-digit',
+                                                hour12: false
+                                            });
+                                        }
+                                        return formatted;
+                                    } else {
+                                        // Ensure APP_TIMEZONE is available before formatting
+                                        if (!window.APP_TIMEZONE && window.Uptimo && window.Uptimo.config && window.Uptimo.config.timezone) {
+                                            window.APP_TIMEZONE = window.Uptimo.config.timezone;
+                                        }
+                                        const formatted = Utils.formatDateTime(label);
+                                        // If formatting still returns "Invalid Data", use a fallback with timezone
+                                        if (formatted === 'Invalid Data') {
+                                            const timezone = window.APP_TIMEZONE || 'UTC';
+                                            return new Date(label).toLocaleString('en-US', {
+                                                timeZone: timezone,
+                                                year: 'numeric',
+                                                month: '2-digit',
+                                                day: '2-digit',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                second: '2-digit',
+                                                hour12: false
+                                            });
+                                        }
+                                        return formatted;
+                                    }
+                                },
                                 label: function(context) {
+                                    const index = context.dataIndex;
                                     const value = context.parsed.y;
-                                    return value ? `Response Time: ${Utils.formatResponseTime(value)}` : 'No data';
+                                    const status = statuses[index];
+                                    
+                                    let lines = [];
+                                    
+                                    // Add status
+                                    if (status === 'up') {
+                                        lines.push('Status: ✅ Up');
+                                    } else if (status === 'down') {
+                                        lines.push('Status: ❌ Down');
+                                    } else {
+                                        lines.push('Status: ❓ Unknown');
+                                    }
+                                    
+                                    // Add response time
+                                    if (value && value > 0) {
+                                        lines.push(`Response Time: ${Utils.formatResponseTime(value)}`);
+                                    } else {
+                                        lines.push('Response Time: Timeout');
+                                    }
+                                    
+                                    return lines;
+                                },
+                                afterLabel: function(context) {
+                                    const index = context.dataIndex;
+                                    const status = statuses[index];
+                                    
+                                    // Get the raw check data for this point
+                                    const chartData = context.chart.data;
+                                    const label = chartData.labels[index];
+                                    
+                                    // CRITICAL FIX: Use direct tooltip check data instead of timestamp matching
+                                    // This ensures tooltips show the correct data, especially for high-frequency monitors (30s intervals)
+                                    let check = null;
+                                    
+                                    // Use the precise tooltip check data if available
+                                    if (tooltipChecks.length > 0 && index < tooltipChecks.length) {
+                                        check = tooltipChecks[index];
+                                    }
+                                    
+                                    // Fallback: try to find check by timestamp if direct lookup failed
+                                    if (!check && typeof label === 'string' && label.includes('T') && label.includes('Z')) {
+                                        const labelTime = new Date(label).getTime();
+                                        if (!isNaN(labelTime)) {
+                                            check = sortedChecksForTooltip.find(c => {
+                                                const checkTime = new Date(c.t).getTime();
+                                                // Allow a small time window for matching (within 1 minute)
+                                                return Math.abs(checkTime - labelTime) < 60000;
+                                            });
+                                        }
+                                    }
+                                    
+                                    if (check) {
+                                        let lines = [];
+                                        
+                                        // Show error message for failed checks
+                                        if (status === 'down' && check.e) {
+                                            lines.push(`Error: ${check.e}`);
+                                        }
+                                        
+                                        // Show HTTP status code if available
+                                        if (check.c) {
+                                            lines.push(`HTTP Status: ${check.c}`);
+                                        }
+                                        
+                                        return lines.length > 0 ? lines : null;
+                                    }
+                                    
+                                    return null;
                                 }
                             }
                         }
@@ -304,10 +455,15 @@ const ChartManager = {
             return `empty-${timespan}`;
         }
         
+        // Sort checks by timestamp (newest first) for consistent hashing
+        // This ensures we're always comparing the most recent data
+        const sortedForHash = [...checks].sort((a, b) =>
+            new Date(b.t) - new Date(a.t)  // b.t - a.t = descending (newest first)
+        );
+        
         // Only hash the meaningful parts: timestamp, status, response_time
-        // Since checks are sorted by timestamp descending (newest first),
-        // we should look at the first 50 items (the most recent ones)
-        const meaningfulData = checks.slice(0, 50).map(check => ({
+        // Look at the first 50 items (the most recent ones)
+        const meaningfulData = sortedForHash.slice(0, 50).map(check => ({
             t: check.t,  // timestamp
             s: check.s,  // status
             r: check.r   // response_time
@@ -357,7 +513,24 @@ const ChartManager = {
                 cutoffTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         }
         
-        return checks.filter(check => new Date(check.t) >= cutoffTime);
+        // Filter by timespan and then sort by timestamp (oldest first)
+        const filtered = checks.filter(check => new Date(check.t) >= cutoffTime);
+        const sorted = filtered.sort((a, b) => new Date(a.t) - new Date(b.t));
+        
+        // Debug: Log filtering results
+        if (console.debug && Uptimo.config.debug) {
+            console.debug('filterChecksByTimespan results:');
+            console.debug('- Input checks count:', checks.length);
+            console.debug('- First input check:', checks[0]?.t);
+            console.debug('- Last input check:', checks[checks.length - 1]?.t);
+            console.debug('- Filtered count:', filtered.length);
+            console.debug('- First filtered check:', filtered[0]?.t);
+            console.debug('- Last filtered check:', filtered[filtered.length - 1]?.t);
+            console.debug('- First sorted check:', sorted[0]?.t);
+            console.debug('- Last sorted check:', sorted[sorted.length - 1]?.t);
+        }
+        
+        return sorted;
     },
     
     // Get maximum data points for timespan
@@ -375,7 +548,17 @@ const ChartManager = {
     // Format label for timespan
     formatLabelForTimespan: function(timestamp, timespan) {
         const date = new Date(timestamp);
-        const timezone = window.APP_TIMEZONE || 'UTC';
+        // Ensure APP_TIMEZONE is available with multiple fallbacks
+        let timezone = window.APP_TIMEZONE;
+        if (!timezone) {
+            // Try to get timezone from Uptimo config
+            if (window.Uptimo && window.Uptimo.config && window.Uptimo.config.timezone) {
+                timezone = window.Uptimo.config.timezone;
+                window.APP_TIMEZONE = timezone; // Set it for future use
+            } else {
+                timezone = 'UTC';
+            }
+        }
         
         try {
             switch (timespan) {
@@ -639,14 +822,17 @@ const ChartManager = {
         const labels = [];
         const values = [];
         const statuses = [];
+        const tooltipChecks = []; // Store the actual check data for tooltip lookup
         
         buckets.forEach(bucket => {
-            labels.push(this.formatLabelForTimespan(
-                bucket.start.toISOString(),
-                timespan
-            ));
-            
             if (bucket.assignedCheck) {
+                // CRITICAL FIX: Use the actual assigned check timestamp for the label
+                // This ensures tooltip matching works correctly, especially for high-frequency monitors (30s intervals)
+                labels.push(this.formatLabelForTimespan(
+                    bucket.assignedCheck.t, // Use assigned check timestamp, not bucket start
+                    timespan
+                ));
+                
                 // For timeout checks with null response_time, use 0 to ensure they appear in chart
                 // The status will still be "down" so it will be colored red
                 const responseTime = bucket.assignedCheck.response_time !== null
@@ -654,13 +840,31 @@ const ChartManager = {
                     : 0;
                 values.push(responseTime);
                 statuses.push(bucket.assignedCheck.status);
+                
+                // Store the actual check data for direct tooltip lookup
+                tooltipChecks.push(bucket.assignedCheck);
             } else {
+                // For empty buckets, use bucket start time for label (no tooltip data needed)
+                labels.push(this.formatLabelForTimespan(
+                    bucket.start.toISOString(),
+                    timespan
+                ));
                 values.push(null);
                 statuses.push(null);
+                tooltipChecks.push(null);
             }
         });
         
-        return { labels, values, statuses };
+        // Debug: Log the bucket order before any reversal
+        if (console.debug && Uptimo.config.debug) {
+            console.debug('Bucket data before potential reversal:');
+            console.debug('First label:', labels[0]);
+            console.debug('Last label:', labels[labels.length - 1]);
+            console.debug('First tooltip check timestamp:', tooltipChecks[0]?.t);
+            console.debug('Last tooltip check timestamp:', tooltipChecks[tooltipChecks.length - 1]?.t);
+        }
+        
+        return { labels, values, statuses, tooltipChecks };
     },
     
     // Create linear timescale data with adaptive bucketing (FIXED VERSION)
@@ -682,13 +886,33 @@ const ChartManager = {
         const { startTime, endTime } = this.createFixedTimeBoundaries(now, timespanHours);
         const timeIntervalMs = this.getOptimalTimeInterval(monitorIntervalMs, timespan);
         
-        // Sort checks by timestamp to ensure ordered processing - using new field format
+        // Debug: Log the original data order
+        if (console.debug && Uptimo.config.debug) {
+            console.debug('Original checks order (first 3):', checks.slice(0, 3).map(c => ({ t: c.t, r: c.r })));
+        }
+        
+        // CRITICAL FIX: Explicitly sort checks in chronological order (oldest to newest)
+        // This ensures the chart displays left-to-right (past to present) correctly
+        // Even though filterChecksByTimespan should sort, we guarantee it here
         const sortedChecks = [...checks].sort((a, b) =>
-            new Date(a.t) - new Date(b.t)  // t = timestamp
+            new Date(a.t).getTime() - new Date(b.t).getTime()  // Ascending: oldest first
         );
+        
+        // Debug: Log the sorted data order
+        if (console.debug && Uptimo.config.debug) {
+            console.debug('Sorted checks order (first 3):', sortedChecks.slice(0, 3).map(c => ({ t: c.t, r: c.r })));
+            console.debug('Time boundaries:', { startTime: startTime.toISOString(), endTime: endTime.toISOString() });
+        }
         
         // Create time buckets with fixed boundaries
         const buckets = this.createTimeBuckets(startTime, endTime, timeIntervalMs);
+        
+        // Debug: Log bucket creation
+        if (console.debug && Uptimo.config.debug) {
+            console.debug('Created buckets:', buckets.length);
+            console.debug('First bucket start:', buckets[0]?.start.toISOString());
+            console.debug('Last bucket start:', buckets[buckets.length - 1]?.start.toISOString());
+        }
         
         // Assign checks to buckets - one check per bucket maximum
         this.assignChecksToBuckets(sortedChecks, buckets);
@@ -696,12 +920,21 @@ const ChartManager = {
         // Convert buckets to chart data
         const result = this.bucketsToChartData(buckets, timespan);
         
+        // Debug: Log final result
+        if (console.debug && Uptimo.config.debug) {
+            console.debug('Final chart result labels (first 3):', result.labels.slice(0, 3));
+            console.debug('Final chart result labels (last 3):', result.labels.slice(-3));
+        }
+        
         // Fallback: if no data was assigned, use simple direct mapping
         // This is a safety net for edge cases where bucket assignment fails
         if (result.values.filter(v => v !== null).length === 0 && sortedChecks.length > 0) {
             console.warn('Bucket assignment failed, using fallback direct mapping for chart data');
             return this.createSimpleChartData(sortedChecks, timespan);
         }
+        
+        // Include the sorted checks in the result for tooltip lookup
+        result.sortedChecks = sortedChecks;
         
         return result;
     },
@@ -729,9 +962,22 @@ const ChartManager = {
             alignmentIntervalMs = 4 * 60 * 60 * 1000;
         }
         
-        // Calculate the end time aligned to the boundary
+        // Calculate the end time aligned to the boundary (this should be "now" or slightly after)
         const endTime = new Date(Math.ceil(now.getTime() / alignmentIntervalMs) * alignmentIntervalMs);
+        // Calculate start time as end time minus the timespan duration
         const startTime = new Date(endTime.getTime() - timespanMs);
+        
+        // Debug: Log the time boundaries
+        if (console.debug && Uptimo.config.debug) {
+            console.debug('Time boundaries created:', {
+                now: now.toISOString(),
+                timespanHours: timespanHours,
+                timespanMs: timespanMs,
+                startTime: startTime.toISOString(),
+                endTime: endTime.toISOString(),
+                durationHours: (endTime.getTime() - startTime.getTime()) / (60 * 60 * 1000)
+            });
+        }
         
         return { startTime, endTime };
     },
@@ -741,11 +987,16 @@ const ChartManager = {
         
         const maxDataPoints = this.getMaxDataPointsForTimespan(timespan);
         
+        // Sort checks by timestamp (oldest first) for proper left-to-right timeline
+        const sortedChecks = [...checks].sort((a, b) =>
+            new Date(a.t) - new Date(b.t)  // t = timestamp
+        );
+        
         // If we have too many checks, sample them evenly
-        let sampledChecks = checks;
-        if (checks.length > maxDataPoints) {
-            const step = Math.ceil(checks.length / maxDataPoints);
-            sampledChecks = checks.filter((_, index) => index % step === 0);
+        let sampledChecks = sortedChecks;
+        if (sortedChecks.length > maxDataPoints) {
+            const step = Math.ceil(sortedChecks.length / maxDataPoints);
+            sampledChecks = sortedChecks.filter((_, index) => index % step === 0);
         }
         
         const labels = [];

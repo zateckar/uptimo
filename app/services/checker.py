@@ -7,6 +7,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 from typing import Any, Dict, Optional
+import urllib3
 
 # Optional imports
 try:
@@ -30,11 +31,26 @@ except ImportError:
     TLDEXTRACT_AVAILABLE = False
     tldextract = None  # type: ignore
 
+# Configure urllib3 to handle connection pooling properly
+# This prevents the "Connection pool is full" warnings
+urllib3.disable_warnings(
+    urllib3.exceptions.InsecureRequestWarning
+)  # Disable SSL warnings for RDAP
+rdap_http = urllib3.PoolManager(
+    num_pools=10,  # Increase number of connection pools
+    maxsize=20,  # Increase max connections per pool
+    retries=urllib3.Retry(
+        total=3, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504]
+    ),
+    timeout=urllib3.Timeout(connect=10, read=10),
+)
+
 try:
     import whoisit
 
     RDAP_AVAILABLE = True
-    # Initialize RDAP bootstrap data
+    # Configure whoisit to use better connection management
+    # This helps prevent connection pool exhaustion
     try:
         whoisit.bootstrap(allow_insecure=True, overrides=True)
     except Exception:
@@ -195,7 +211,7 @@ class MonitorChecker:
             # Ensure we have the whoisit module
             assert whoisit is not None, "whoisit module should be available"
 
-            # Ensure RDAP is bootstrapped
+            # Ensure RDAP is bootstrapped (only once)
             try:
                 whoisit.bootstrap(allow_insecure=True, overrides=True)
             except Exception:
@@ -211,13 +227,32 @@ class MonitorChecker:
             if not is_ip:
                 rdap_query_target = self._extract_registered_domain(target)
 
-            # Query RDAP based on target type
-            if is_ip:
-                rdap_result = whoisit.ip(rdap_query_target, allow_insecure_ssl=True)
-                result_type = "ip"
-            else:
-                rdap_result = whoisit.domain(rdap_query_target, allow_insecure_ssl=True)
-                result_type = "domain"
+            # Query RDAP based on target type with better error handling
+            rdap_result = None
+            result_type = "ip" if is_ip else "domain"
+            try:
+                if is_ip:
+                    rdap_result = whoisit.ip(rdap_query_target, allow_insecure_ssl=True)
+                else:
+                    rdap_result = whoisit.domain(
+                        rdap_query_target, allow_insecure_ssl=True
+                    )
+            except Exception as e:
+                # Handle connection errors gracefully
+                error_msg = str(e).lower()
+                if "connection pool" in error_msg or "max retries" in error_msg:
+                    return {
+                        "error": f"RDAP service temporarily unavailable (connection overload): {rdap_query_target}",
+                        "domain" if not is_ip else "ip": target,
+                        "type": result_type,
+                        "retry_later": True,
+                    }
+                else:
+                    return {
+                        "error": f"RDAP query failed: {str(e)}",
+                        "domain" if not is_ip else "ip": target,
+                        "type": result_type,
+                    }
 
             if not rdap_result:
                 return {
@@ -324,11 +359,21 @@ class MonitorChecker:
             return result_data
 
         except Exception as e:
-            return {
-                "error": str(e),
-                "domain" if not self._is_ip_address(target) else "ip": target,
-                "type": "ip" if self._is_ip_address(target) else "domain",
-            }
+            error_msg = str(e).lower()
+            if "connection pool" in error_msg or "max retries" in error_msg:
+                # Special handling for connection pool issues
+                return {
+                    "error": "RDAP service temporarily overloaded (connection pool exhausted)",
+                    "domain" if not self._is_ip_address(target) else "ip": target,
+                    "type": "ip" if self._is_ip_address(target) else "domain",
+                    "retry_later": True,
+                }
+            else:
+                return {
+                    "error": str(e),
+                    "domain" if not self._is_ip_address(target) else "ip": target,
+                    "type": "ip" if self._is_ip_address(target) else "domain",
+                }
 
     def _get_dns_info(self, hostname: str) -> Dict[str, Any]:
         """Get DNS information for the hostname."""
@@ -495,7 +540,9 @@ class HTTPChecker(MonitorChecker):
                     domain_check_data.update(domain_info)
                 else:
                     # Mark as failed so we don't try again (scheduler will commit)
-                    self.monitor.domain_check_failed = True
+                    # But only mark as permanently failed if it's not a temporary connection issue
+                    if not domain_info.get("retry_later", False):
+                        self.monitor.domain_check_failed = True
                     self.monitor.last_domain_check = datetime.now(timezone.utc)
 
                 # Get DNS info (only for hostnames, not IP addresses)
@@ -773,7 +820,9 @@ class TCPChecker(MonitorChecker):
                     domain_check_data.update(domain_info)
                 else:
                     # Mark as failed so we don't try again (scheduler will commit)
-                    self.monitor.domain_check_failed = True
+                    # But only mark as permanently failed if it's not a temporary connection issue
+                    if not domain_info.get("retry_later", False):
+                        self.monitor.domain_check_failed = True
                     self.monitor.last_domain_check = datetime.now(timezone.utc)
 
                 # Get DNS info (only for hostnames, not IP addresses)
@@ -837,7 +886,9 @@ class PingChecker(MonitorChecker):
                     domain_check_data.update(domain_info)
                 else:
                     # Mark as failed so we don't try again (scheduler will commit)
-                    self.monitor.domain_check_failed = True
+                    # But only mark as permanently failed if it's not a temporary connection issue
+                    if not domain_info.get("retry_later", False):
+                        self.monitor.domain_check_failed = True
                     self.monitor.last_domain_check = datetime.now(timezone.utc)
 
                 # Get DNS info (only for hostnames, not IP addresses)
