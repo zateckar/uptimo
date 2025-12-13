@@ -22,10 +22,12 @@ from app import db
 from app.decorators import admin_required
 from app.forms.auth import AdminPasswordResetForm, UserCreateForm, UserEditForm
 from app.forms.color_customization import ColorCustomizationForm
+from app.forms.oidc import OIDCProviderForm
 from app.forms.public_status import PublicStatusPageForm, PublicStatusPageEditForm
 from app.forms.settings import AppSettingsForm, DeleteOldRecordsForm
 from app.models.app_settings import AppSettings
 from app.models.check_result import CheckResult
+from app.models.oidc_provider import OIDCProvider
 from app.models.public_status_page import PublicStatusPage
 from app.models.user import User
 from app.services.public_status_service import PublicStatusService
@@ -708,3 +710,161 @@ def format_file_size(size_bytes: int) -> str:
             return f"{size_float:.2f} {unit}"
         size_float /= 1024.0
     return f"{size_float:.2f} PB"
+
+
+# OIDC Provider Management
+@bp.route("/oidc-providers")
+@login_required
+@admin_required
+def oidc_providers() -> Any:
+    """List all OIDC providers (admin only)."""
+    providers = OIDCProvider.query.order_by(OIDCProvider.created_at.desc()).all()
+    return render_template("admin/oidc_providers.html", providers=providers)
+
+
+@bp.route("/oidc-providers/create", methods=["GET", "POST"])
+@login_required
+@admin_required
+def create_oidc_provider() -> Any:
+    """Create a new OIDC provider (admin only)."""
+    form = OIDCProviderForm()
+
+    if form.validate_on_submit():
+        # Determine configuration type and set appropriate fields
+        provider = OIDCProvider(
+            name=form.name.data,
+            display_name=form.display_name.data,
+            client_id=form.client_id.data,
+            client_secret=form.client_secret.data,
+            scope=form.scope.data,
+            is_active=form.is_active.data,
+        )
+
+        # Set configuration based on type
+        if form.config_type.data == "discovery":
+            provider.issuer_url = form.issuer_url.data
+        else:
+            provider.auth_url = form.auth_url.data
+            provider.token_url = form.token_url.data
+            provider.jwks_url = form.jwks_url.data
+            provider.userinfo_url = form.userinfo_url.data
+
+        db.session.add(provider)
+        db.session.commit()
+
+        flash(
+            f"OIDC provider '{provider.display_name}' created successfully.", "success"
+        )
+        return redirect(url_for("admin.oidc_providers"))
+
+    return render_template("admin/create_oidc_provider.html", form=form)
+
+
+@bp.route("/oidc-providers/<int:provider_id>/edit", methods=["GET", "POST"])
+@login_required
+@admin_required
+def edit_oidc_provider(provider_id: int) -> Any:
+    """Edit an existing OIDC provider (admin only)."""
+    provider = OIDCProvider.query.get_or_404(provider_id)
+
+    # Get connected users for this provider
+    connected_users = User.query.filter_by(
+        auth_type="oidc", oidc_provider=provider.name
+    ).all()
+
+    form = OIDCProviderForm(obj=provider)
+
+    # Pre-populate configuration type and mask client secret
+    if request.method == "GET":
+        form.config_type.data = "discovery" if provider.issuer_url else "manual"
+        # Mask the client secret for display
+        if provider.client_secret:
+            form.client_secret.data = "*" * len(provider.client_secret)
+
+    if form.validate_on_submit():
+        # Update basic fields
+        provider.name = form.name.data
+        provider.display_name = form.display_name.data
+        provider.client_id = form.client_id.data
+        provider.scope = form.scope.data
+        provider.is_active = form.is_active.data
+
+        # Only update client secret if it's not masked (doesn't consist of only asterisks)
+        if form.client_secret.data and not (
+            form.client_secret.data.startswith("*")
+            and form.client_secret.data.count("*") > len(form.client_secret.data) / 2
+        ):
+            provider.client_secret = form.client_secret.data
+
+        # Clear all configuration fields first
+        provider.issuer_url = None
+        provider.auth_url = None
+        provider.token_url = None
+        provider.jwks_url = None
+        provider.userinfo_url = None
+
+        # Set configuration based on type
+        if form.config_type.data == "discovery":
+            provider.issuer_url = form.issuer_url.data
+        else:
+            provider.auth_url = form.auth_url.data
+            provider.token_url = form.token_url.data
+            provider.jwks_url = form.jwks_url.data
+            provider.userinfo_url = form.userinfo_url.data
+
+        db.session.commit()
+
+        flash(
+            f"OIDC provider '{provider.display_name}' updated successfully.", "success"
+        )
+        return redirect(url_for("admin.oidc_providers"))
+
+    return render_template(
+        "admin/edit_oidc_provider.html",
+        form=form,
+        provider=provider,
+        connected_users=connected_users,
+    )
+
+
+@bp.route("/oidc-providers/<int:provider_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def delete_oidc_provider(provider_id: int) -> Any:
+    """Delete an OIDC provider (admin only)."""
+    provider = OIDCProvider.query.get_or_404(provider_id)
+
+    # Check if any users are connected to this provider
+    connected_users = User.query.filter_by(
+        auth_type="oidc", oidc_provider=provider.name
+    ).count()
+
+    if connected_users > 0:
+        flash(
+            f"Cannot delete provider '{provider.display_name}' because {connected_users} user(s) are connected to it. "
+            f"Please disable the provider instead.",
+            "danger",
+        )
+        return redirect(url_for("admin.oidc_providers"))
+
+    provider_name = provider.display_name
+    db.session.delete(provider)
+    db.session.commit()
+
+    flash(f"OIDC provider '{provider_name}' deleted successfully.", "success")
+    return redirect(url_for("admin.oidc_providers"))
+
+
+@bp.route("/oidc-providers/<int:provider_id>/toggle-active", methods=["POST"])
+@login_required
+@admin_required
+def toggle_oidc_provider_active(provider_id: int) -> Any:
+    """Toggle OIDC provider active status (admin only)."""
+    provider = OIDCProvider.query.get_or_404(provider_id)
+
+    provider.is_active = not provider.is_active
+    db.session.commit()
+
+    status = "enabled" if provider.is_active else "disabled"
+    flash(f"OIDC provider '{provider.display_name}' {status} successfully.", "success")
+    return redirect(url_for("admin.oidc_providers"))

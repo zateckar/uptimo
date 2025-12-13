@@ -30,6 +30,7 @@ dependencies = [
     "pytz>=2025.2",
     "tldextract>=5.1.2",
     "flask-limiter>=3.8.0",
+    "pyjwt>=2.9.0",
 ]
 
 [build-system]

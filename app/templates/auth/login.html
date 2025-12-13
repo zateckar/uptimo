@@ -54,6 +54,26 @@
                     </div>
                 </form>
                 
+                <!-- OIDC Login Options -->
+                {% if oidc_providers %}
+                <div class="text-center">
+                    <hr>
+                    <p class="text-secondary mb-3">Or sign in with</p>
+                    <div class="d-grid gap-2">
+                        {% for provider in oidc_providers %}
+                        <a href="{{ url_for('auth.login_oidc', provider_name=provider.name) }}"
+                           class="btn btn-outline-primary d-flex align-items-center justify-content-center">
+                            <i class="bi bi-shield-lock me-2"></i>
+                            {{ provider.display_name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                    <p class="text-muted small mt-3">
+                        By using an external provider, you agree to our terms of service.
+                    </p>
+                </div>
+                {% endif %}
+                
             </div>
         </div>
     </div>

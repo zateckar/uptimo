@@ -1,9 +1,11 @@
+import logging
+import json
+import re
 import requests
+import requests.adapters  # Explicit import for type checking
 import socket
 import ssl
 import time
-import json
-import re
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 from typing import Any, Dict, Optional
@@ -36,14 +38,10 @@ except ImportError:
 urllib3.disable_warnings(
     urllib3.exceptions.InsecureRequestWarning
 )  # Disable SSL warnings for RDAP
-rdap_http = urllib3.PoolManager(
-    num_pools=10,  # Increase number of connection pools
-    maxsize=20,  # Increase max connections per pool
-    retries=urllib3.Retry(
-        total=3, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504]
-    ),
-    timeout=urllib3.Timeout(connect=10, read=10),
-)
+
+# Configure urllib3 logging to suppress connection pool warnings
+urllib3_logger = logging.getLogger("urllib3.connectionpool")
+urllib3_logger.setLevel(logging.ERROR)  # Only show errors, not warnings
 
 try:
     import whoisit
@@ -52,6 +50,20 @@ try:
     # Configure whoisit to use better connection management
     # This helps prevent connection pool exhaustion
     try:
+        # Configure whoisit session with improved connection pooling
+        whoisit_session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=20,  # Number of connection pools
+            pool_maxsize=50,  # Max connections per pool
+            max_retries=3,
+        )
+        whoisit_session.mount("http://", adapter)
+        whoisit_session.mount("https://", adapter)
+
+        # Note: whoisit doesn't expose a session attribute publicly
+        # The library manages its own connections internally
+        # This session config is for future compatibility if whoisit adds session support
+
         whoisit.bootstrap(allow_insecure=True, overrides=True)
     except Exception:
         # Bootstrap failure shouldn't prevent the app from starting

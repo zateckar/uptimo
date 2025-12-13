@@ -11,15 +11,25 @@ class User(UserMixin, db.Model):
     """User model for authentication and user management."""
 
     id = db.Column(db.Integer, primary_key=True)
+    auth_type = db.Column(db.String(20), nullable=False, default="local", index=True)
+    oidc_provider = db.Column(db.String(100), nullable=True, index=True)
+    oidc_subject = db.Column(db.String(255), nullable=True, index=True)
+
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
-    password_hash = db.Column(db.String(255), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=True)  # Nullable for OIDC users
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
     last_login = db.Column(db.DateTime)
+
+    # Add composite index for OIDC identity lookup
+    __table_args__ = (
+        db.Index("idx_oidc_identity", "oidc_provider", "oidc_subject"),
+        {"extend_existing": True},
+    )
 
     # Relationships
     monitors = db.relationship(
@@ -74,12 +84,22 @@ class User(UserMixin, db.Model):
     def __repr__(self) -> str:
         return f"<User {self.username}>"
 
+    def is_oidc_user(self) -> bool:
+        """Check if user is OIDC-authenticated."""
+        return self.auth_type == "oidc"
+
+    def has_password(self) -> bool:
+        """Check if user has a local password."""
+        return self.auth_type == "local" and self.password_hash is not None
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert user to dictionary for API responses."""
         return {
             "id": self.id,
             "username": self.username,
             "email": self.email,
+            "auth_type": self.auth_type,
+            "oidc_provider": self.oidc_provider,
             "is_active": self.is_active,
             "is_admin": self.is_admin,
             "created_at": self.created_at.isoformat() if self.created_at else None,

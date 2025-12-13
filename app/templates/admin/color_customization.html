@@ -508,7 +508,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <form method="POST" action="{{ url_for('admin.color_customization') }}" style="display: inline;">
+                <form method="POST" action="{{ url_for('admin.color_customization') }}" class="inline-form">
                     {{ color_form.hidden_tag() }}
                     <button type="submit" name="reset_colors" value="1" class="btn btn-warning">
                         <i class="bi bi-arrow-counterclockwise"></i> Reset to Default

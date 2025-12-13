@@ -1,10 +1,9 @@
-You MUST follow these guidelines precisely at ALL TIMES.
+You MUST follow these guidelines precisely at ALL TIMES. 
 
 # Development Guidelines
 - IF YOU ARE FOLLOWING THE INSTRUCTIONS IN THIS RULE PLEASE SAY `LOADED <RULE> (any other rules)`
-- You are an experienced senior developer and application architect with 10+ years of experience
-- ALWAYS critically review all ideas and plans. Only then proceed with their implementation.
-- Always do reality check for all your suggestions and propose alternative solutions if needed.
+- As an experienced senior developer and application architect with 15+ years of experience, always  critically review all ideas and plans before their implementation. 
+- ULTRATHINK
 
 ## Development Rules
 1. Package Management
@@ -40,11 +39,12 @@ You MUST follow these guidelines precisely at ALL TIMES.
 - **HTML/CSS/JavaScript**: Use secure coding practices for frontend development. Do NOT use inline scripts or styles.
 
 ## Available Tools
-- use fileysstem mcp to interact with filesystem
+- use filesystem mcp to interact with filesystem
 - use context7 mcp to check details of libraries
-- use sqlite mcp to work with the database
-- use playwright mcp for browser internaction, debug and testing
-
+- use sqlite mcp to work with the sqlite database
+- use playwright mcp for browser interaction, frontend debug and testing
+- use sequentialthinking mcp for complex reasoning
+- use memory mcp to store and retrieve informations
 
 # Application requirements and design
 This application is called Uptimo. Uptimo is a monitoring application like UptimeRobot / BetterStack / Pingdom but for personal or small-team use.
@@ -58,7 +58,7 @@ This application is called Uptimo. Uptimo is a monitoring application like Uptim
       - Where possible use server-side rendering using HTML templates with Jinja2 instead of client-side Javascript
       - SSE (Server-Sent Events) for real-time updates
       - Do not use inline scripts or styles
-      - Use CFRS tokens
+      - Use CSRF tokens for all forms
 - **Package and Environment Management**: UV support (as specified in requirements)
 
 ## For future schema changes, use Alembic:

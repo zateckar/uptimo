@@ -1354,3 +1354,25 @@ canvas {
     margin-left: auto;
     flex-shrink: 0;
 }
+
+/* ============================================================================
+   CSP COMPLIANCE UTILITY CLASSES
+   ============================================================================ */
+
+/* Display utilities to replace inline styles */
+.hidden {
+    display: none !important;
+}
+
+.inline-form {
+    display: inline !important;
+}
+
+.form-inline {
+    display: inline;
+}
+
+/* Form utility classes */
+.form-inline-display {
+    display: inline;
+}

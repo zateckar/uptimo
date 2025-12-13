@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}OIDC Providers - Uptimo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-shield-lock-fill"></i> OIDC Providers</h2>
+                <a href="{{ url_for('admin.create_oidc_provider') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Add Provider
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Display Name</th>
+                                    <th>Configuration</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for provider in providers %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ provider.name }}</strong>
+                                    </td>
+                                    <td>{{ provider.display_name }}</td>
+                                    <td>
+                                        {% if provider.issuer_url %}
+                                        <span class="badge bg-info">Auto-discovery</span>
+                                        <br><small class="text-muted">{{ provider.issuer_url }}</small>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Manual</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if provider.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ provider.created_at|local_time('%Y-%m-%d') if provider.created_at else 'N/A' }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{{ url_for('admin.edit_oidc_provider', provider_id=provider.id) }}"
+                                               class="btn btn-outline-primary"
+                                               title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <form method="POST"
+                                                  action="{{ url_for('admin.toggle_oidc_provider_active', provider_id=provider.id) }}"
+                                                  class="form-inline-display">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit"
+                                                        class="btn btn-outline-{{ 'warning' if provider.is_active else 'success' }}"
+                                                        title="{{ 'Disable' if provider.is_active else 'Enable' }}">
+                                                    <i class="bi bi-{{ 'pause' if provider.is_active else 'play' }}-circle"></i>
+                                                </button>
+                                            </form>
+                                            <button type="button"
+                                                    class="btn btn-outline-danger"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#deleteModal{{ provider.id }}"
+                                                    title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+
+                                        <!-- Delete Confirmation Modal -->
+                                        <div class="modal fade" id="deleteModal{{ provider.id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Confirm Delete</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p>Are you sure you want to delete OIDC provider <strong>{{ provider.display_name }}</strong>?</p>
+                                                        <p class="text-danger">
+                                                            <i class="bi bi-exclamation-triangle-fill"></i>
+                                                            This will prevent users from authenticating with this provider. Existing users authenticated through this provider will still be able to log in with their local credentials if they have them.
+                                                        </p>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <form method="POST" action="{{ url_for('admin.delete_oidc_provider', provider_id=provider.id) }}" class="form-inline-display">
+                                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                            <button type="submit" class="btn btn-danger">Delete Provider</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if not providers %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-shield-lock icon-size-3rem icon-neutral"></i>
+                        <p class="text-muted mt-3">No OIDC providers configured.</p>
+                        <p class="text-muted">
+                            <small>Add an OIDC provider to enable external authentication options for users.</small>
+                        </p>
+                        <a href="{{ url_for('admin.create_oidc_provider') }}" class="btn btn-primary mt-3">
+                            <i class="bi bi-plus-circle"></i> Add Your First Provider
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

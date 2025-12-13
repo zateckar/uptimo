@@ -1,0 +1,302 @@
+// Data retention management functionality
+let statsData = null;
+let policiesData = null;
+
+// Load page data
+function loadPageData() {
+    loadStats();
+    loadPolicies();
+}
+
+// Load database statistics
+function loadStats() {
+    fetch('/api/admin/data-retention/stats')
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to load stats');
+            return response.json();
+        })
+        .then(data => {
+            statsData = data;
+            renderStats(data);
+        })
+        .catch(error => {
+            console.error('Error loading stats:', error);
+            showToast('Error loading statistics', 'error');
+        });
+}
+
+// Load retention policies
+function loadPolicies() {
+    fetch('/api/admin/data-retention/policies')
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to load policies');
+            return response.json();
+        })
+        .then(data => {
+            policiesData = data.policies;
+            renderPolicies(data.policies);
+        })
+        .catch(error => {
+            console.error('Error loading policies:', error);
+            showToast('Error loading policies', 'error');
+        });
+}
+
+// Render statistics
+function renderStats(stats) {
+    const container = document.getElementById('statsContainer');
+    
+    let html = '<div class="row">';
+    
+    // Check Results
+    if (stats.check_results) {
+        html += `
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title">Check Results</h6>
+                        <h3 class="text-primary">${stats.check_results.total_count.toLocaleString()}</h3>
+                        ${stats.check_results.oldest_record ? `<small class="text-muted">Oldest: ${new Date(stats.check_results.oldest_record).toLocaleDateString()}</small><br>` : ''}
+                        ${stats.check_results.newest_record ? `<small class="text-muted">Newest: ${new Date(stats.check_results.newest_record).toLocaleDateString()}</small>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Incidents
+    if (stats.incidents) {
+        html += `
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title">Incidents</h6>
+                        <h3 class="text-warning">${stats.incidents.total_count.toLocaleString()}</h3>
+                        <small class="text-success">${stats.incidents.active_count} active</small><br>
+                        <small class="text-muted">${stats.incidents.total_count - stats.incidents.active_count} resolved</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Notification Logs
+    if (stats.notification_logs) {
+        html += `
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title">Notification Logs</h6>
+                        <h3 class="text-info">${stats.notification_logs.total_count.toLocaleString()}</h3>
+                        ${stats.notification_logs.oldest_record ? `<small class="text-muted">Oldest: ${new Date(stats.notification_logs.oldest_record).toLocaleDateString()}</small>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// Render retention policies
+function renderPolicies(policies) {
+    const container = document.getElementById('policiesContainer');
+    
+    let html = '<form id="policiesForm">';
+    
+    for (const [dataType, days] of Object.entries(policies)) {
+        const displayName = dataType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        html += `
+            <div class="row mb-2 align-items-center">
+                <div class="col-6">
+                    <label class="form-label mb-0">${displayName}</label>
+                </div>
+                <div class="col-4">
+                    <input type="number" class="form-control form-control-sm" 
+                           id="policy_${dataType}" value="${days}" min="1">
+                </div>
+                <div class="col-2">
+                    <small class="text-muted">days</small>
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</form>';
+    html += '<div class="mt-3"><button class="btn btn-primary btn-sm" id="updatePoliciesBtn">Update Policies</button></div>';
+    
+    container.innerHTML = html;
+    
+    // Add event listener to the update button
+    document.getElementById('updatePoliciesBtn').addEventListener('click', updatePolicies);
+}
+
+// Update policies
+function updatePolicies() {
+    const policies = {};
+    
+    for (const dataType of Object.keys(policiesData)) {
+        const value = document.getElementById(`policy_${dataType}`).value;
+        policies[dataType] = parseInt(value);
+    }
+    
+    fetch('/api/admin/data-retention/policies', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ policies })
+    })
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to update policies');
+            return response.json();
+        })
+        .then(data => {
+            showToast('Retention policies updated successfully', 'success');
+            loadPolicies(); // Reload to show updated values
+        })
+        .catch(error => {
+            console.error('Error updating policies:', error);
+            showToast('Error updating policies', 'error');
+        });
+}
+
+// Estimate cleanup impact
+function estimateCleanup() {
+    fetch('/api/admin/data-retention/estimate')
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to estimate cleanup');
+            return response.json();
+        })
+        .then(data => {
+            renderEstimate(data);
+            document.getElementById('estimateSection').classList.remove('d-none');
+        })
+        .catch(error => {
+            console.error('Error estimating cleanup:', error);
+            showToast('Error estimating cleanup', 'error');
+        });
+}
+
+// Render estimate
+function renderEstimate(estimate) {
+    const container = document.getElementById('estimateContainer');
+    
+    if (estimate.total_estimated_deletions === 0) {
+        container.innerHTML = '<p class="text-success">No records would be deleted.</p>';
+        return;
+    }
+    
+    let html = `<h5>Total estimated deletions: ${estimate.total_estimated_deletions.toLocaleString()}</h5><div class="row">`;
+    
+    for (const [dataType, info] of Object.entries(estimate.estimated_deletions)) {
+        if (info.count === 0) continue;
+        
+        const displayName = dataType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        html += `
+            <div class="col-md-4 mb-2">
+                <div class="card">
+                    <div class="card-body p-2">
+                        <h6 class="card-title mb-1">${displayName}</h6>
+                        <p class="mb-0">${info.count.toLocaleString()} records</p>
+                        <small class="text-muted">Older than ${info.retention_days} days</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// Show cleanup modal
+function showCleanupModal() {
+    const modal = new bootstrap.Modal(document.getElementById('cleanupModal'));
+    modal.show();
+}
+
+// Run cleanup
+function runCleanup() {
+    const cleanupType = document.getElementById('cleanupType').value;
+    const daysToKeep = document.getElementById('daysToKeep').value;
+    
+    const data = { type: cleanupType };
+    if (daysToKeep) {
+        data.days_to_keep = parseInt(daysToKeep);
+    }
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('cleanupModal'));
+    modal.hide();
+    
+    // Show loading state
+    showToast('Running cleanup...', 'info');
+    
+    fetch('/api/admin/data-retention/cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+        .then(response => {
+            if (!response.ok) throw new Error('Cleanup failed');
+            return response.json();
+        })
+        .then(result => {
+            let message = `Cleanup completed successfully. Deleted ${result.deleted_count || result.total_deleted || 0} records.`;
+            showToast(message, 'success');
+            
+            // Reload stats after cleanup
+            setTimeout(loadStats, 1000);
+        })
+        .catch(error => {
+            console.error('Error running cleanup:', error);
+            showToast('Error running cleanup: ' + error.message, 'error');
+        });
+}
+
+// Show toast notification
+function showToast(message, type) {
+    const toast = document.getElementById('notificationToast');
+    const toastMessage = document.getElementById('toastMessage');
+    const toastInstance = new bootstrap.Toast(toast);
+    
+    toastMessage.textContent = message;
+    
+    // Set toast color based on type
+    toast.className = 'toast align-items-center border-0';
+    if (type === 'success') {
+        toast.classList.add('bg-success', 'text-white');
+    } else if (type === 'error') {
+        toast.classList.add('bg-danger', 'text-white');
+    } else {
+        toast.classList.add('bg-info', 'text-white');
+    }
+    
+    toastInstance.show();
+}
+
+// Initialize event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Load data when page loads
+    loadPageData();
+    
+    // Add event listeners to buttons
+    const refreshBtn = document.querySelector('[data-action="load-stats"]');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', loadStats);
+    }
+    
+    const estimateBtn = document.querySelector('[data-action="estimate-cleanup"]');
+    if (estimateBtn) {
+        estimateBtn.addEventListener('click', estimateCleanup);
+    }
+    
+    const cleanupBtn = document.querySelector('[data-action="show-cleanup-modal"]');
+    if (cleanupBtn) {
+        cleanupBtn.addEventListener('click', showCleanupModal);
+    }
+    
+    const runCleanupBtn = document.querySelector('[data-action="run-cleanup"]');
+    if (runCleanupBtn) {
+        runCleanupBtn.addEventListener('click', runCleanup);
+    }
+});

@@ -1,5 +1,6 @@
 # Models package
 from .user import User
+from .oidc_provider import OIDCProvider
 from .monitor import Monitor, MonitorType, CheckInterval
 from .check_result import CheckResult
 from .incident import Incident
@@ -16,6 +17,7 @@ from .user_incident_view import UserIncidentView
 
 __all__ = [
     "User",
+    "OIDCProvider",
     "Monitor",
     "MonitorType",
     "CheckInterval",
