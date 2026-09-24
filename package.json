@@ -11,7 +11,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
-    "cline": "^1.0.8"
+    "cline": "^3.0.65"
   },
   "dependencies": {}
 }
